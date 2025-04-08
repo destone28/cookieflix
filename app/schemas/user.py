@@ -1,4 +1,5 @@
 # app/schemas/user.py
+from app.utils.auth import is_strong_password
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
@@ -13,8 +14,8 @@ class UserCreate(UserBase):
     
     @validator('password')
     def password_strength(cls, v):
-        if len(v) < 8:
-            raise ValueError('La password deve contenere almeno 8 caratteri')
+        if not is_strong_password(v):
+            raise ValueError('La password deve contenere almeno 8 caratteri, inclusi maiuscole, minuscole, numeri e caratteri speciali')
         return v
 
 class UserLogin(BaseModel):

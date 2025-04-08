@@ -74,3 +74,25 @@ async def get_current_admin_user(current_user: User = Depends(get_current_user))
 def generate_referral_code(length=8):
     characters = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(characters) for _ in range(length))
+
+def is_strong_password(password: str) -> bool:
+    """
+    Verifica che la password sia sufficientemente forte.
+    Requisiti: 
+    - Almeno 8 caratteri
+    - Almeno una lettera maiuscola
+    - Almeno una lettera minuscola
+    - Almeno un numero
+    - Almeno un carattere speciale
+    """
+    if len(password) < 8:
+        return False
+    if not any(c.isupper() for c in password):
+        return False
+    if not any(c.islower() for c in password):
+        return False
+    if not any(c.isdigit() for c in password):
+        return False
+    if not any(c in "!@#$%^&*()-_=+[]{}|;:,.<>?/" for c in password):
+        return False
+    return True

@@ -1,11 +1,13 @@
 # app/main.py
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 import logging
 import time
 import os
+from datetime import datetime
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
@@ -24,8 +26,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="API per il servizio di abbonamento Cookieflix",
     version="0.1.0",
-    docs_url=f"{settings.API_PREFIX}/docs",
-    redoc_url=f"{settings.API_PREFIX}/redoc",
+    docs_url=f"/docs",
+    redoc_url=f"/redoc",
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     openapi_tags=[
         {"name": "Authentication", "description": "Operazioni di autenticazione"},
@@ -38,7 +40,7 @@ app = FastAPI(
 # Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=[settings.FRONTEND_URL, "https://cdn.jsdelivr.net"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -88,3 +90,46 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    # Logging
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.4f}s")
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
+
+@app.get("/health")
+def health_check():
+    """Endpoint per verificare lo stato di salute del servizio"""
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "time": datetime.utcnow().isoformat()
+    }
+
+# Aggiunta a app/main.py
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    # Log dell'errore
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Si è verificato un errore interno. Il team tecnico è stato notificato."},
+    )
