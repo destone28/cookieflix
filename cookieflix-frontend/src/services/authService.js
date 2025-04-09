@@ -1,0 +1,98 @@
+import axios from 'axios';
+
+// Base URL dell'API
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+// Istanza axios con configurazioni comuni
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Intercetta le richieste per aggiungere il token di autenticazione
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Funzione per effettuare il login
+export const loginUser = async (credentials) => {
+  try {
+    // Formattazione richiesta per compatibilità con FastAPI OAuth2
+    const formData = new URLSearchParams();
+    formData.append('username', credentials.email);
+    formData.append('password', credentials.password);
+
+    const response = await axios.post(`${API_URL}/auth/token`, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
+    // Se il login ha successo, ottieni i dati dell'utente
+    if (response.data.access_token) {
+      const userResponse = await axios.get(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${response.data.access_token}`,
+        },
+      });
+
+      return {
+        token: response.data.access_token,
+        user: userResponse.data,
+      };
+    }
+    throw new Error('Credenziali non valide');
+  } catch (error) {
+    console.error('Login error:', error.response?.data || error.message);
+    if (error.response?.status === 401) {
+      throw new Error('Email o password non validi');
+    }
+    throw new Error('Errore durante il login. Riprova più tardi.');
+  }
+};
+
+// Funzione per registrare un nuovo utente
+export const registerUser = async (userData) => {
+  try {
+    const response = await api.post('/auth/register', userData);
+    
+    // Dopo la registrazione, effettua automaticamente il login
+    return await loginUser({
+      email: userData.email,
+      password: userData.password,
+    });
+  } catch (error) {
+    console.error('Registration error:', error.response?.data || error.message);
+    if (error.response?.status === 400) {
+      throw new Error(error.response.data.detail || 'Email già registrata');
+    }
+    throw new Error('Errore durante la registrazione. Riprova più tardi.');
+  }
+};
+
+// Ottieni dati dell'utente corrente
+export const getCurrentUser = async () => {
+  try {
+    const response = await api.get('/auth/me');
+    return response.data;
+  } catch (error) {
+    console.error('Get current user error:', error.response?.data || error.message);
+    throw new Error('Errore nel recupero dei dati utente');
+  }
+};
+
+// Funzione di logout (lato client)
+export const logoutUser = () => {
+  // Nel nostro caso è sufficiente rimuovere il token dal localStorage
+  // Questo viene fatto nel componente AuthContext
+  return true;
+};
