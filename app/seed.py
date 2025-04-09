@@ -3,9 +3,8 @@ import json
 from sqlalchemy.orm import Session
 import logging
 
-from app.models.user import User
-from app.models.subscription import SubscriptionPlan
-from app.models.product import Category, Design
+from app.models import User, SubscriptionPlan, Category, Design
+
 from app.utils.auth import get_password_hash
 
 logger = logging.getLogger(__name__)

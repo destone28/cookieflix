@@ -10,6 +10,7 @@ from app.utils.auth import (
     verify_password, get_password_hash, create_access_token,
     get_current_active_user
 )
+from app.utils.csrf import generate_csrf_token
 from app.database import get_db
 from app.config import settings
 
@@ -66,3 +67,59 @@ async def login(
 @router.get("/me", response_model=schemas.User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
+
+@router.get("/csrf-token")
+async def get_csrf_token():
+    """Genera un nuovo token CSRF"""
+    token = generate_csrf_token()
+    return {"csrf_token": token}
+
+@router.post("/token", response_model=schemas.Token)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    # Verifica credenziali
+    user = db.query(User).filter(User.email == form_data.username).first()
+    
+    # Verifica se l'account è bloccato
+    if user and user.account_locked_until and user.account_locked_until > datetime.utcnow():
+        logger.warning(f"Tentativo di accesso a un account bloccato: {user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account temporaneamente bloccato. Riprova dopo {user.account_locked_until}"
+        )
+    
+    # Verifica credenziali
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        # Gestione tentativi falliti
+        if user:
+            user.failed_login_attempts += 1
+            
+            # Blocca l'account dopo 5 tentativi falliti
+            if user.failed_login_attempts >= 5:
+                user.account_locked_until = datetime.utcnow() + timedelta(minutes=15)
+                logger.warning(f"Account bloccato per {user.email} dopo 5 tentativi falliti")
+            
+            db.commit()
+        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenziali non valide",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Reset tentativi falliti dopo login riuscito
+    if user.failed_login_attempts > 0:
+        user.failed_login_attempts = 0
+        user.account_locked_until = None
+        db.commit()
+    
+    # Genera token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}

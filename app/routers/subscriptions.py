@@ -109,7 +109,7 @@ async def create_checkout_session(
         stripe_customer_id = create_stripe_customer(
             email=current_user.email,
             name=current_user.full_name,
-            metadata={"user_id": current_user.id}
+            metadata={"user_id": str(current_user.id)}  # Converti in string per sicurezza
         )
         # Aggiorna l'utente con l'ID cliente Stripe
         current_user.stripe_customer_id = stripe_customer_id
@@ -122,10 +122,13 @@ async def create_checkout_session(
     cancel_url = f"{settings.FRONTEND_URL}/checkout/cancel"
     
     metadata = {
-        "user_id": current_user.id,
-        "plan_id": plan.id,
+        "user_id": str(current_user.id),  # Converti in string per sicurezza
+        "plan_id": str(plan.id),
         "billing_period": checkout_data.billing_period
     }
+    
+    # Aggiungi riferimento alla webhook URL
+    webhook_url = f"{settings.API_PREFIX}/webhooks/stripe"
     
     checkout_session = create_stripe_checkout_session(
         customer_id=stripe_customer_id,
@@ -134,6 +137,9 @@ async def create_checkout_session(
         cancel_url=cancel_url,
         metadata=metadata
     )
+    
+    # Log dell'operazione
+    logger.info(f"Sessione checkout creata per utente {current_user.id}, piano {plan.id}, periodo {checkout_data.billing_period}")
     
     return {"checkout_url": checkout_session.url}
 

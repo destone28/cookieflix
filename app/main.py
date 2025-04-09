@@ -11,15 +11,28 @@ from datetime import datetime
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, users, products, subscriptions
+from app.routers import auth, users, products, subscriptions, webhooks
 from app.seed import seed_database
+from app.utils.logging import setup_logging
+from app.utils.db_migrations import add_missing_columns
+from app.models import User, Activity, SubscriptionPlan, Subscription, Category, Design, Vote
+
+# Crea tabelle del database
+Base.metadata.create_all(bind=engine)
+
+# Aggiungi colonne mancanti se necessario
+add_missing_columns(engine)
+
+# Seed database
+with SessionLocal() as db:
+    seed_database(db)
 
 # Configurazione logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger(__name__)
+logger = setup_logging(app_name="cookieflix", log_level=logging.INFO)
 
 # Inizializzazione app
 app = FastAPI(
@@ -62,18 +75,13 @@ async def log_and_add_headers(request: Request, call_next):
     
     return response
 
-# Crea tabelle del database
-Base.metadata.create_all(bind=engine)
-
-# Seed database
-with SessionLocal() as db:
-    seed_database(db)
 
 # Registrazione routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(products.router)
 app.include_router(subscriptions.router)
+app.include_router(webhooks.router)
 
 # Cartella statica e template
 try:

@@ -28,6 +28,8 @@ class User(Base):
     referred_by = Column(String, nullable=True)
     credit_balance = Column(Float, default=0)
     stripe_customer_id = Column(String, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    account_locked_until = Column(DateTime, nullable=True)
     
     # Relazioni
     subscriptions = relationship("Subscription", back_populates="user")
