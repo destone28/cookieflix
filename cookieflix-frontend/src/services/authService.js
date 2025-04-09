@@ -1,8 +1,6 @@
+// src/services/authService.js - versione corretta
 import api from './apiConfig';
 import axios from 'axios';
-
-// Base URL dell'API
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // Funzione per effettuare il login
 export const loginUser = async (credentials) => {
@@ -12,7 +10,8 @@ export const loginUser = async (credentials) => {
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
 
-    const response = await axios.post(`${API_URL}/auth/token`, formData, {
+    // Usa l'URL base configurato in apiConfig
+    const response = await axios.post(`${api.defaults.baseURL}/auth/token`, formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -20,11 +19,7 @@ export const loginUser = async (credentials) => {
 
     // Se il login ha successo, ottieni i dati dell'utente
     if (response.data.access_token) {
-      const userResponse = await axios.get(`${API_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${response.data.access_token}`,
-        },
-      });
+      const userResponse = await api.get('/auth/me');
 
       return {
         token: response.data.access_token,

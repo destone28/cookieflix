@@ -1,3 +1,4 @@
+// src/services/subscriptionService.js
 import api from './apiConfig';
 
 // Ottieni tutti i piani di abbonamento
@@ -56,5 +57,16 @@ export const updateSubscriptionCategories = async (categoryIds) => {
   } catch (error) {
     console.error('Error updating subscription categories:', error.response?.data || error.message);
     throw new Error('Impossibile aggiornare le categorie');
+  }
+};
+
+// Verifica una sessione di checkout
+export const verifyCheckoutSession = async (sessionId) => {
+  try {
+    const response = await api.get(`/subscriptions/verify-session/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error verifying checkout session:', error.response?.data || error.message);
+    throw new Error('Impossibile verificare la sessione di checkout');
   }
 };
