@@ -1,7 +1,8 @@
-// Modifica finale a App.jsx per includere ToastProvider
+// Aggiornamento finale di App.jsx per includere ErrorBoundary
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -101,12 +102,17 @@ function AppRoutes() {
 }
 
 function App() {
+  // Mostra dettagli errore solo in ambiente di sviluppo
+  const showErrorDetails = import.meta.env.DEV;
+  
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppRoutes />
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary showDetails={showErrorDetails}>
+      <AuthProvider>
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
