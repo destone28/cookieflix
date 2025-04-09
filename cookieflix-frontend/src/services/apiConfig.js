@@ -1,17 +1,14 @@
+// src/services/apiConfig.js
 import axios from 'axios';
 
-// Base URL dell'API
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-// Istanza axios con configurazioni comuni
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Intercetta le richieste per aggiungere il token di autenticazione
+// Interceptor per aggiungere il token di autenticazione a ogni richiesta
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -20,17 +17,19 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Intercetta le risposte per gestire gli errori comuni
+// Interceptor per gestire errori di risposta
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Gestione errori comuni
-    if (error.response?.status === 401) {
-      // Token non valido o scaduto
+    // Se il token è scaduto (401), logout automatico
+    if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
