@@ -1,27 +1,8 @@
+import api from './apiConfig';
 import axios from 'axios';
 
 // Base URL dell'API
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-// Istanza axios con configurazioni comuni
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Intercetta le richieste per aggiungere il token di autenticazione
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 // Funzione per effettuare il login
 export const loginUser = async (credentials) => {
