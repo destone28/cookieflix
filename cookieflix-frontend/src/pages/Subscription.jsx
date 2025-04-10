@@ -1,3 +1,4 @@
+// src/pages/Subscription.jsx (aggiornato per prezzi Stripe)
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -21,15 +22,20 @@ const Subscription = () => {
         // Carica piani e abbonamento in parallelo
         const [plansData, subscriptionData] = await Promise.all([
           getSubscriptionPlans(),
-          getActiveSubscription().catch(() => null) // Se non c'è un abbonamento attivo, restituisce null
+          getActiveSubscription().catch(() => null)
         ]);
         
-        setPlans(plansData);
-        setActiveSubscription(subscriptionData);
+        if (plansData && plansData.length > 0) {
+          setPlans(plansData);
+          
+          // Seleziona automaticamente il piano popolare o il primo
+          const popularPlan = plansData.find(plan => plan.is_popular);
+          setSelectedPlan(popularPlan || plansData[0]);
+        } else {
+          setError('Nessun piano di abbonamento disponibile');
+        }
         
-        // Seleziona automaticamente il piano popolare o il primo
-        const popularPlan = plansData.find(plan => plan.is_popular);
-        setSelectedPlan(popularPlan || plansData[0]);
+        setActiveSubscription(subscriptionData);
       } catch (err) {
         console.error('Error fetching subscription data:', err);
         setError('Impossibile caricare i dati. Riprova più tardi.');
@@ -52,7 +58,58 @@ const Subscription = () => {
 
   // Funzione per formattare la data
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('it-IT');
+  };
+
+  // Funzione per ottenere il prezzo formattato per il piano e periodo selezionati
+  const getFormattedPrice = (plan, period) => {
+    if (!plan) return '0,00 €';
+    
+    let price = 0;
+    switch (period) {
+      case 'monthly':
+        price = plan.monthly_price;
+        break;
+      case 'quarterly': 
+        price = plan.quarterly_price;
+        break;
+      case 'semiannual':
+        price = plan.semiannual_price;
+        break;
+      case 'annual':
+        price = plan.annual_price;
+        break;
+      default:
+        price = plan.monthly_price;
+    }
+    
+    return price.toFixed(2).replace('.', ',') + ' €';
+  };
+
+  // Funzione per ottenere il prezzo mensile per il piano e periodo selezionati
+  const getMonthlyPrice = (plan, period) => {
+    if (!plan) return '0,00 €';
+    
+    let price = 0;
+    switch (period) {
+      case 'monthly':
+        price = plan.monthly_price;
+        break;
+      case 'quarterly': 
+        price = plan.quarterly_price / 3;
+        break;
+      case 'semiannual':
+        price = plan.semiannual_price / 6;
+        break;
+      case 'annual':
+        price = plan.annual_price / 12;
+        break;
+      default:
+        price = plan.monthly_price;
+    }
+    
+    return price.toFixed(2).replace('.', ',') + ' €';
   };
 
   // Rendering dello stato di caricamento
@@ -79,7 +136,7 @@ const Subscription = () => {
               <p className="text-gray-600 mb-4">{activeSubscription.plan.description}</p>
               
               <ul className="space-y-2 mb-4">
-                {activeSubscription.plan.features.map((feature, index) => (
+                {Array.isArray(activeSubscription.plan.features) && activeSubscription.plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
                     <svg 
                       className="h-5 w-5 text-green-500 mr-2 mt-0.5" 
@@ -103,7 +160,7 @@ const Subscription = () => {
               <div className="mb-3">
                 <span className="text-gray-600">Periodicità:</span>
                 <span className="font-medium ml-2">
-                  {billingPeriodMap[activeSubscription.billing_period]}
+                  {billingPeriodMap[activeSubscription.billing_period] || activeSubscription.billing_period}
                 </span>
               </div>
               
@@ -162,7 +219,7 @@ const Subscription = () => {
             <h2 className="text-2xl font-semibold mb-6">Scegli il tuo piano</h2>
             
             {/* Selezione piano */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {plans.map(plan => (
                 <button
                   key={plan.id}
@@ -178,7 +235,7 @@ const Subscription = () => {
                     {plan.categories_count} {plan.categories_count === 1 ? 'categoria' : 'categorie'}
                   </p>
                   <div className="text-lg font-bold text-primary">
-                    {plan.monthly_price.toFixed(2)} €<span className="text-sm font-normal">/mese</span>
+                    {getMonthlyPrice(plan, 'monthly')}<span className="text-sm font-normal">/mese</span>
                   </div>
                 </button>
               ))}
@@ -189,7 +246,7 @@ const Subscription = () => {
               <h3 className="text-lg font-semibold mb-4">Scegli la periodicità</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                {['monthly', 'quarterly', 'semiannual', 'annual'].map(period => (
+                {Object.entries(billingPeriodMap).map(([period, label]) => (
                   <button
                     key={period}
                     onClick={() => setBillingPeriod(period)}
@@ -199,7 +256,12 @@ const Subscription = () => {
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <h4 className="font-medium">{billingPeriodMap[period]}</h4>
+                    <h4 className="font-medium">{label}</h4>
+                    {selectedPlan && (
+                      <p className="text-lg font-bold text-primary mt-2">
+                        {getFormattedPrice(selectedPlan, period)}
+                      </p>
+                    )}
                     {period !== 'monthly' && (
                       <p className="text-sm text-green-600 mt-1">
                         {period === 'quarterly' && 'Risparmi il 10%'}

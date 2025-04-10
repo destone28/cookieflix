@@ -1,7 +1,7 @@
-// src/services/subscriptionService.js
+// src/services/subscriptionService.js (aggiornato)
 import api from './apiConfig';
 
-// Ottieni tutti i piani di abbonamento
+// Ottieni tutti i piani di abbonamento con prezzi da Stripe
 export const getSubscriptionPlans = async () => {
   try {
     const response = await api.get('/subscriptions/plans');

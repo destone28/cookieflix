@@ -1,4 +1,4 @@
-// src/App.jsx - Uniformato con rotte in inglese
+// src/App.jsx (aggiornato con rotte uniformi)
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';

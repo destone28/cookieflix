@@ -38,39 +38,54 @@ const Home = () => {
     {
       id: 1,
       name: 'Starter',
-      description: 'Piano base per iniziare',
-      monthly_price: 15.90,
+      description: 'La soluzione per i più timidi',
+      monthly_price: 12.90,
       features: [
-        '4 cookie cutters al mese',
-        '1 categoria a scelta',
-        'Accesso alla community'
+        "3 cookie cutters al mese",
+        "1 categoria a scelta",
+        "Spedizione gratuita"
       ],
       is_popular: false
     },
     {
       id: 2,
-      name: 'Creator',
-      description: 'Il piano più popolare',
-      monthly_price: 23.90,
+      name: 'Hobbista',
+      description: 'La scelta più popolare',
+      monthly_price: 18.90,
       features: [
-        '7 cookie cutters al mese',
-        '2 categorie a scelta',
-        'Accesso alla community',
-        'Anteprima nuovi design'
+        "6+1 cookie cutters al mese",
+        "2 categorie a scelta",
+        "1 Cookie cutter del mese extra in più in omaggio",
+        "Spedizione gratuita"
       ],
       is_popular: true
     },
     {
       id: 3,
-      name: 'Master',
-      description: 'Per veri appassionati',
-      monthly_price: 29.90,
+      name: 'Creativo',
+      description: 'Dove le idee prendono form(in)a',
+      monthly_price: 27.90,
       features: [
-        '10 cookie cutters al mese',
-        '3 categorie a scelta',
-        'Accesso alla community',
-        'Anteprima nuovi design',
-        'Accesso esclusivo a design speciali'
+        '9+1 cookie cutters al mese',
+        "3 categorie a scelta",
+        "Possibilità di proporre nuovi cutters specifici",
+        "1 Cookie cutter del mese extra in più in omaggio",
+        "Spedizione gratuita"
+      ],
+      is_popular: false
+    },
+    {
+      id: 4,
+      name: 'Professional',
+      description: "L'esperienza completa per veri professionisti",
+      monthly_price: 39.90,
+      features: [
+        '15+1 cookie cutters al mese',
+        "Tutte le categorie",
+        "Possibilità di proporre nuovi cutters specifici",
+        "1 Cookie cutter del mese extra in più in omaggio",
+        "Il tuo voto sui design del mese vale x3",
+        "Spedizione gratuita"
       ],
       is_popular: false
     }
@@ -95,7 +110,7 @@ const Home = () => {
       id: 3,
       name: 'Alessandro P.',
       role: 'Chef Professionista',
-      content: 'Uso Cookieflix per creare dessert unici nel mio ristorante. Il piano Master mi dà accesso a design esclusivi che nessun altro ha.',
+      content: 'Uso Cookieflix per creare dessert unici nel mio ristorante. Il piano Professional mi dà accesso a design esclusivi che nessun altro ha.',
       avatar: 'https://placehold.co/100?text=AP'
     }
   ];
@@ -200,7 +215,7 @@ const Home = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {subscriptionPlans.map(plan => (
               <div 
                 key={plan.id} 

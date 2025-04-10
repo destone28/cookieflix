@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx (aggiornato)
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -36,10 +37,17 @@ const Dashboard = () => {
         
         setSubscription(subscriptionData);
         
-        // Simula i design del mese (in produzione sarebbero filtrati dal backend)
-        // Prendi i primi X design in base al piano dell'utente
-        const designLimit = subscriptionData?.plan.items_per_month || 4;
-        setMonthlyDesigns(designsData.slice(0, designLimit));
+        // Ottieni i design del mese in base al piano dell'utente
+        if (subscriptionData && designsData.length) {
+          const designLimit = subscriptionData.plan.items_per_month || 4;
+          // Ordina per numero di voti (i più popolari)
+          const sortedDesigns = [...designsData]
+            .sort((a, b) => (b.votes_count || 0) - (a.votes_count || 0))
+            .slice(0, designLimit);
+          setMonthlyDesigns(sortedDesigns);
+        } else {
+          setMonthlyDesigns([]);
+        }
         
         setUserVotes(votesData);
       } catch (err) {
@@ -55,6 +63,7 @@ const Dashboard = () => {
 
   // Formatta la data
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('it-IT');
   };
 
@@ -66,7 +75,7 @@ const Dashboard = () => {
         color: 'red',
         action: {
           label: 'Abbonati ora',
-          link: '/subscription'
+          link: '/plans'  // Aggiornato da /subscription a /plans
         }
       };
     }
@@ -94,7 +103,7 @@ const Dashboard = () => {
       
       {/* Sezione di benvenuto */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-2xl font-semibold mb-2">Benvenuto, {user?.full_name}</h2>
+        <h2 className="text-2xl font-semibold mb-2">Benvenuto, {user?.full_name || 'Utente'}</h2>
         
         {/* Stato abbonamento */}
         <div className="flex items-center mt-4">
@@ -122,22 +131,24 @@ const Dashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-600">Credito disponibile</p>
-              <p className="text-2xl font-bold">{user?.credit_balance.toFixed(2)} €</p>
+              <p className="text-2xl font-bold">{(user?.credit_balance || 0).toFixed(2)} €</p>
             </div>
             
             <div className="text-right">
               <p className="text-gray-600">Codice Referral</p>
               <div className="flex items-center">
-                <p className="font-medium mr-2">{user?.referral_code}</p>
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(user?.referral_code);
-                    toast.showSuccess('Codice copiato negli appunti!');
-                  }}
-                  className="text-secondary hover:text-primary text-sm"
-                >
-                  Copia
-                </button>
+                <p className="font-medium mr-2">{user?.referral_code || 'N/A'}</p>
+                {user?.referral_code && (
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(user.referral_code);
+                      toast.showSuccess('Codice copiato negli appunti!');
+                    }}
+                    className="text-secondary hover:text-primary text-sm"
+                  >
+                    Copia
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -162,7 +173,7 @@ const Dashboard = () => {
               Abbonati per ricevere i cookie cutters mensili!
             </p>
             <Link
-              to={subscriptionStatus.action.link}
+              to="/plans"  // Aggiornato da /subscription a /plans
               className="bg-primary text-white px-6 py-2 rounded-md hover:bg-opacity-90 transition-colors inline-block"
             >
               Scopri i piani
@@ -176,17 +187,15 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {monthlyDesigns.map(design => (
               <div key={design.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                {design.image_url && (
-                  <img 
-                    src={design.image_url} 
-                    alt={design.name} 
-                    className="w-full h-48 object-cover"
-                  />
-                )}
+                <img 
+                  src={design.image_url || `https://placehold.co/400x400?text=${encodeURIComponent(design.name)}`} 
+                  alt={design.name} 
+                  className="w-full h-48 object-cover"
+                />
                 
                 <div className="p-4">
                   <h3 className="font-semibold text-lg mb-1">{design.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{design.description}</p>
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">{design.description}</p>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">
@@ -228,17 +237,15 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {userVotes.slice(0, 3).map(design => (
                 <div key={design.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  {design.image_url && (
-                    <img 
-                      src={design.image_url} 
-                      alt={design.name} 
-                      className="w-full h-40 object-cover"
-                    />
-                  )}
+                  <img 
+                    src={design.image_url || `https://placehold.co/400x400?text=${encodeURIComponent(design.name)}`} 
+                    alt={design.name} 
+                    className="w-full h-40 object-cover"
+                  />
                   
                   <div className="p-4">
                     <h3 className="font-semibold text-lg mb-1">{design.name}</h3>
-                    <p className="text-gray-600 text-sm mb-2">{design.description}</p>
+                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">{design.description}</p>
                     
                     <div className="flex justify-between items-center">
                       <span className="inline-flex items-center text-sm text-primary">
@@ -304,7 +311,7 @@ const Dashboard = () => {
           
           {subscription && (
             <Link 
-              to="/categories" 
+              to="/categories"  // Aggiornato da /category-selection a /categories
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
             >
               <h3 className="font-semibold text-lg mb-2">Categorie</h3>

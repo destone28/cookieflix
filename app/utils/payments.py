@@ -13,28 +13,28 @@ logger = logging.getLogger(__name__)
 # Mapping dei piani Cookieflix vs product/price IDs di Stripe
 PLAN_MAPPING = {
     # Starter
-    "starter_monthly": "price_starter_monthly",
-    "starter_quarterly": "price_starter_quarterly",
-    "starter_semiannual": "price_starter_semiannual",
-    "starter_annual": "price_starter_annual",
+    "starter_monthly": "price_1RCNjVP2DMvOSV1TAqpxkBUk",
+    "starter_quarterly": "price_1RCO0NP2DMvOSV1TVUWKzRGN",
+    "starter_semiannual": "price_1RCO1sP2DMvOSV1Tbqda2dAl",
+    "starter_annual": "price_1RCO2TP2DMvOSV1TXF7kj23D",
     
-    # Creator
-    "creator_monthly": "price_creator_monthly",
-    "creator_quarterly": "price_creator_quarterly",
-    "creator_semiannual": "price_creator_semiannual",
-    "creator_annual": "price_creator_annual",
+    # Hobbista
+    "hobbista_monthly": "price_1RCNkxP2DMvOSV1Tg2pOXdq8",
+    "hobbista_quarterly": "price_1RCO8ZP2DMvOSV1TTAPvn3zR",
+    "hobbista_semiannual": "price_1RCO8yP2DMvOSV1TqspuQGWi",
+    "hobbista_annual": "price_1RCO9lP2DMvOSV1TUnJEGFdE",
     
-    # Master
-    "master_monthly": "price_master_monthly",
-    "master_quarterly": "price_master_quarterly",
-    "master_semiannual": "price_master_semiannual",
-    "master_annual": "price_master_annual",
+    # Creativo
+    "creativo_monthly": "price_1RCNsUP2DMvOSV1Twc9eTOnv",
+    "creativo_quarterly": "price_1RCOEsP2DMvOSV1TKEoSqTGC",
+    "creativo_semiannual": "price_1RCOFcP2DMvOSV1TeWpYSiZq",
+    "creativo_annual": "price_1RCOGAP2DMvOSV1TTk9pPgUS",
     
-    # Collection
-    "collection_monthly": "price_collection_monthly",
-    "collection_quarterly": "price_collection_quarterly",
-    "collection_semiannual": "price_collection_semiannual",
-    "collection_annual": "price_collection_annual",
+    # Professional
+    "professional_monthly": "price_1RCNvcP2DMvOSV1TjA5xlsrc",
+    "professional_quarterly": "price_1RCOGbP2DMvOSV1TGM7XCpbs",
+    "professional_semiannual": "price_1RCOGyP2DMvOSV1TU4QlrRyx",
+    "professional_annual": "price_1RCOHLP2DMvOSV1TUYwUfiaG",
 }
 
 def calculate_next_billing_date(billing_period):

@@ -9,7 +9,7 @@ class SubscriptionPlan(Base):
     __tablename__ = "subscription_plans"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)  # Starter, Creator, Master, Collection
+    name = Column(String)  # Starter, Hobbista, Creativo, Professional
     slug = Column(String, unique=True)
     description = Column(String)
     categories_count = Column(Integer)
