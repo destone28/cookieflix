@@ -1,8 +1,8 @@
 # app/routers/subscriptions.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
-import json
-from typing import List
+import json, logging
+from typing import List, Optional
 from datetime import datetime, timedelta
 
 from app.schemas import subscription as schemas
@@ -16,6 +16,8 @@ from app.utils.payments import (
 )
 from app.database import get_db
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}/subscriptions", tags=["Subscriptions"])
 
@@ -62,6 +64,7 @@ async def get_subscription_plan(
 @router.post("/checkout", response_model=schemas.CheckoutSessionResponse)
 async def create_checkout_session(
     checkout_data: schemas.CreateCheckoutSession,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -101,7 +104,7 @@ async def create_checkout_session(
     if not stripe_price_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Combinazione piano/periodo non valida"
+            detail=f"Combinazione piano/periodo non valida: {price_key}"
         )
     
     # Crea o ottieni customer Stripe
@@ -109,7 +112,7 @@ async def create_checkout_session(
         stripe_customer_id = create_stripe_customer(
             email=current_user.email,
             name=current_user.full_name,
-            metadata={"user_id": str(current_user.id)}  # Converti in string per sicurezza
+            metadata={"user_id": current_user.id}
         )
         # Aggiorna l'utente con l'ID cliente Stripe
         current_user.stripe_customer_id = stripe_customer_id
@@ -117,18 +120,20 @@ async def create_checkout_session(
     else:
         stripe_customer_id = current_user.stripe_customer_id
     
-    # Crea session checkout
-    success_url = f"{settings.FRONTEND_URL}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{settings.FRONTEND_URL}/checkout/cancel"
+    # Ottieni l'URL di base
+    base_url = str(request.base_url).rstrip('/')
+    
+    # Crea session checkout con URL aggiornati
+    success_url = f"{base_url}/api/subscriptions/verify-session/{{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{base_url}/api/subscriptions/cancel-checkout?session_id={{CHECKOUT_SESSION_ID}}"
     
     metadata = {
-        "user_id": str(current_user.id),  # Converti in string per sicurezza
-        "plan_id": str(plan.id),
+        "user_id": current_user.id,
+        "plan_id": plan.id,
         "billing_period": checkout_data.billing_period
     }
     
-    # Aggiungi riferimento alla webhook URL
-    webhook_url = f"{settings.API_PREFIX}/webhooks/stripe"
+    logger.info(f"Creazione checkout per utente {current_user.id}, piano {plan.id}, periodo {checkout_data.billing_period}")
     
     checkout_session = create_stripe_checkout_session(
         customer_id=stripe_customer_id,
@@ -137,9 +142,6 @@ async def create_checkout_session(
         cancel_url=cancel_url,
         metadata=metadata
     )
-    
-    # Log dell'operazione
-    logger.info(f"Sessione checkout creata per utente {current_user.id}, piano {plan.id}, periodo {checkout_data.billing_period}")
     
     return {"checkout_url": checkout_session.url}
 
@@ -210,3 +212,112 @@ async def update_subscription_categories(
     db.commit()
     
     return {"status": "success", "categories": categories}
+
+@router.get("/verify-session/{session_id}")
+async def verify_checkout_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Verifica una sessione di checkout Stripe e conferma l'abbonamento"""
+    try:
+        # Recupera la sessione da Stripe
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Verifica che la sessione appartenga all'utente corrente
+        if session.metadata.get("user_id") != str(current_user.id):
+            logger.warning(f"Tentativo di verifica sessione di un altro utente: {session_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Non hai il permesso di verificare questa sessione"
+            )
+        
+        # Verifica se la sessione è stata pagata
+        if session.payment_status != "paid":
+            logger.info(f"Sessione non pagata: {session_id}")
+            return {
+                "status": "pending",
+                "message": "Il pagamento non è ancora stato completato"
+            }
+        
+        # Controlla se esiste già un abbonamento per questa sessione
+        existing_subscription = db.query(Subscription).filter(
+            Subscription.user_id == current_user.id,
+            Subscription.stripe_subscription_id == session.subscription
+        ).first()
+        
+        if existing_subscription:
+            logger.info(f"Abbonamento già esistente per la sessione: {session_id}")
+            return {
+                "status": "success",
+                "message": "Abbonamento già attivato",
+                "subscription_id": existing_subscription.id
+            }
+        
+        # Ottieni i metadati dalla sessione
+        plan_id = session.metadata.get("plan_id")
+        billing_period = session.metadata.get("billing_period")
+        
+        # Ottieni il piano
+        plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+        if not plan:
+            logger.error(f"Piano non trovato: {plan_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Piano non trovato"
+            )
+        
+        # Calcola le date di inizio e fine abbonamento
+        start_date = datetime.utcnow()
+        end_date = calculate_next_billing_date(billing_period)
+        
+        # Crea l'abbonamento
+        subscription = Subscription(
+            user_id=current_user.id,
+            plan_id=plan_id,
+            start_date=start_date,
+            end_date=end_date,
+            is_active=True,
+            billing_period=billing_period,
+            next_billing_date=end_date,
+            stripe_customer_id=session.customer,
+            stripe_subscription_id=session.subscription
+        )
+        
+        db.add(subscription)
+        db.commit()
+        db.refresh(subscription)
+        
+        logger.info(f"Abbonamento creato con successo: {subscription.id}")
+        
+        return {
+            "status": "success",
+            "message": "Abbonamento attivato con successo",
+            "subscription_id": subscription.id
+        }
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Errore Stripe: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Errore Stripe: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Errore nella verifica della sessione: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Errore interno del server"
+        )
+
+@router.get("/cancel-checkout")
+async def cancel_checkout(
+    session_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Gestisce l'annullamento di un checkout"""
+    logger.info(f"Checkout annullato dall'utente {current_user.id} - Sessione: {session_id}")
+    
+    return {
+        "status": "cancelled",
+        "message": "Checkout annullato dall'utente"
+    }
