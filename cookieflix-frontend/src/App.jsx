@@ -1,4 +1,4 @@
-// src/App.jsx - Ripristino completo
+// src/App.jsx - Uniformato con rotte in inglese
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -43,8 +43,8 @@ function AppRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/piani" element={<Subscription />} />
-          <Route path="/chi-siamo" element={<Home />} /> {/* Sostituzione temporanea */}
+          <Route path="/plans" element={<Subscription />} />
+          <Route path="/about-us" element={<Home />} /> {/* Sostituzione temporanea */}
           
           {/* Rotte protette */}
           <Route path="/dashboard" element={
@@ -57,12 +57,12 @@ function AppRoutes() {
               <Catalog />
             </ProtectedRoute>
           } />
-          <Route path="/abbonamenti" element={
+          <Route path="/subscription" element={
             <ProtectedRoute>
               <Subscription />
             </ProtectedRoute>
           } />
-          <Route path="/profilo" element={
+          <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
@@ -72,7 +72,7 @@ function AppRoutes() {
               <CheckoutSuccess />
             </ProtectedRoute>
           } />
-          <Route path="/categorie" element={
+          <Route path="/categories" element={
             <ProtectedRoute>
               <CategorySelection />
             </ProtectedRoute>
@@ -95,7 +95,6 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <AppRoutes />
-          {import.meta.env.DEV}
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

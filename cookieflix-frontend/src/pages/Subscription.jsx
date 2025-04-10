@@ -139,7 +139,7 @@ const Subscription = () => {
               </div>
               
               <button
-                onClick={() => navigate('/category-selection')}
+                onClick={() => navigate('/categories')}
                 className="bg-secondary text-white px-4 py-2 rounded-md hover:bg-opacity-90 transition-colors block w-full text-center"
               >
                 Gestisci categorie

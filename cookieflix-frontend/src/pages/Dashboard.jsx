@@ -162,7 +162,7 @@ const Dashboard = () => {
               Abbonati per ricevere i cookie cutters mensili!
             </p>
             <Link
-              to="/subscription"
+              to={subscriptionStatus.action.link}
               className="bg-primary text-white px-6 py-2 rounded-md hover:bg-opacity-90 transition-colors inline-block"
             >
               Scopri i piani
@@ -304,7 +304,7 @@ const Dashboard = () => {
           
           {subscription && (
             <Link 
-              to="/category-selection" 
+              to="/categories" 
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
             >
               <h3 className="font-semibold text-lg mb-2">Categorie</h3>
