@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx (aggiornato)
 import { createContext, useContext, useState, useEffect } from 'react';
 import { loginUser, registerUser, getCurrentUser, logoutUser } from '../services/authService';
 
@@ -19,6 +20,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const token = localStorage.getItem('token');
         if (token) {
+          // Tentativo di caricamento dello user
           const userData = await getCurrentUser();
           setUser(userData);
         }
@@ -38,10 +40,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const { user, token } = await loginUser({ email, password });
-      localStorage.setItem('token', token);
-      setUser(user);
-      return user;
+      const result = await loginUser({ email, password });
+      
+      // Salva il token in localStorage
+      localStorage.setItem('token', result.token);
+      console.log('Token salvato:', result.token);
+      
+      // Imposta l'utente
+      setUser(result.user);
+      return result;
     } catch (err) {
       setError(err.message || 'Errore durante il login');
       throw err;
@@ -55,10 +62,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const { user, token } = await registerUser(userData);
-      localStorage.setItem('token', token);
-      setUser(user);
-      return user;
+      const result = await registerUser(userData);
+      
+      // Salva il token in localStorage
+      localStorage.setItem('token', result.token);
+      console.log('Token salvato dopo registrazione:', result.token);
+      
+      // Imposta l'utente
+      setUser(result.user);
+      return result;
     } catch (err) {
       setError(err.message || 'Errore durante la registrazione');
       throw err;
@@ -87,3 +99,5 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+export default AuthContext;

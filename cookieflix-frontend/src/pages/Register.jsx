@@ -1,8 +1,14 @@
+// src/pages/Register.jsx (aggiornato)
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const Register = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
+  const toast = useToast();
+  
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -13,7 +19,6 @@ const Register = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [registerError, setRegisterError] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -31,6 +36,22 @@ const Register = () => {
     }
   };
 
+  const validatePassword = (password) => {
+    const hasMinLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    if (!hasMinLength) return 'La password deve contenere almeno 8 caratteri';
+    if (!hasUpperCase) return 'La password deve contenere almeno una lettera maiuscola';
+    if (!hasLowerCase) return 'La password deve contenere almeno una lettera minuscola';
+    if (!hasNumbers) return 'La password deve contenere almeno un numero';
+    if (!hasSpecialChar) return 'La password deve contenere almeno un carattere speciale';
+    
+    return null;
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -44,10 +65,9 @@ const Register = () => {
       newErrors.email = 'Inserisci un\'email valida';
     }
     
-    if (!formData.password) {
-      newErrors.password = 'La password è obbligatoria';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'La password deve contenere almeno 8 caratteri';
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      newErrors.password = passwordError;
     }
     
     if (formData.password !== formData.confirmPassword) {
@@ -70,26 +90,31 @@ const Register = () => {
     }
     
     setIsLoading(true);
-    setRegisterError('');
     
     try {
-      // Qui in futuro faremo la chiamata API per la registrazione
-      // Per ora simulo una registrazione di successo dopo 1 secondo
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepara i dati per la registrazione nel formato atteso dal backend
+      const userData = {
+        email: formData.email,
+        full_name: formData.fullName,
+        password: formData.password,
+        referred_by: formData.referralCode || null
+      };
       
-      console.log('Registrazione effettuata con successo', formData);
+      // Usa il servizio di autenticazione reale
+      await register(userData);
       
-      // Reindirizza alla pagina di successo o login
-      navigate('/login', { state: { registrationSuccess: true } });
+      toast.showSuccess('Registrazione completata con successo!');
+      navigate('/dashboard');
     } catch (error) {
+      toast.showError(error.message || 'Errore durante la registrazione');
       console.error('Errore durante la registrazione:', error);
-      setRegisterError('Si è verificato un errore durante la registrazione');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
+    // Il resto del componente rimane invariato
     <div className="min-h-[80vh] flex items-center justify-center bg-light-bg py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-8">
@@ -98,12 +123,6 @@ const Register = () => {
             Unisciti a Cookieflix e inizia la tua avventura creativa
           </p>
         </div>
-        
-        {registerError && (
-          <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 text-red-700">
-            <p>{registerError}</p>
-          </div>
-        )}
         
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
@@ -164,8 +183,12 @@ const Register = () => {
               } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary`}
               placeholder="Crea una password"
             />
-            {errors.password && (
+            {errors.password ? (
               <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                La password deve contenere almeno 8 caratteri, includendo maiuscole, minuscole, numeri e caratteri speciali.
+              </p>
             )}
           </div>
 

@@ -1,4 +1,4 @@
-// src/services/authService.js - versione corretta
+// src/services/authService.js (aggiornato)
 import api from './apiConfig';
 import axios from 'axios';
 
@@ -17,16 +17,27 @@ export const loginUser = async (credentials) => {
       },
     });
 
-    // Se il login ha successo, ottieni i dati dell'utente
-    if (response.data.access_token) {
+    console.log('Login response:', response.data);
+    
+    // Salva temporaneamente il token per ottenere i dati utente
+    const token = response.data.access_token;
+    localStorage.setItem('token', token);
+    
+    // Esegue una richiesta per ottenere i dati dell'utente
+    try {
       const userResponse = await api.get('/auth/me');
-
+      console.log('User data response:', userResponse.data);
+      
       return {
-        token: response.data.access_token,
+        token: token,
         user: userResponse.data,
       };
+    } catch (userError) {
+      console.error('Error fetching user data:', userError);
+      // Rimuovi il token se non riesci a ottenere i dati utente
+      localStorage.removeItem('token');
+      throw new Error('Impossibile ottenere i dati utente dopo il login');
     }
-    throw new Error('Credenziali non valide');
   } catch (error) {
     console.error('Login error:', error.response?.data || error.message);
     if (error.response?.status === 401) {
@@ -40,6 +51,7 @@ export const loginUser = async (credentials) => {
 export const registerUser = async (userData) => {
   try {
     const response = await api.post('/auth/register', userData);
+    console.log('Registration response:', response.data);
     
     // Dopo la registrazione, effettua automaticamente il login
     return await loginUser({
@@ -50,6 +62,13 @@ export const registerUser = async (userData) => {
     console.error('Registration error:', error.response?.data || error.message);
     if (error.response?.status === 400) {
       throw new Error(error.response.data.detail || 'Email già registrata');
+    } else if (error.response?.status === 422) {
+      // Gestisci errori di validazione
+      const detail = error.response.data.detail || [];
+      if (Array.isArray(detail) && detail.length > 0) {
+        throw new Error(detail[0].msg || 'Errore di validazione');
+      }
+      throw new Error('Dati non validi. Verifica i campi inseriti.');
     }
     throw new Error('Errore durante la registrazione. Riprova più tardi.');
   }
@@ -69,6 +88,5 @@ export const getCurrentUser = async () => {
 // Funzione di logout (lato client)
 export const logoutUser = () => {
   // Nel nostro caso è sufficiente rimuovere il token dal localStorage
-  // Questo viene fatto nel componente AuthContext
   return true;
 };

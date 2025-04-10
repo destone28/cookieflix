@@ -1,8 +1,14 @@
+// src/pages/Login.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const toast = useToast();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -53,25 +59,15 @@ const Login = () => {
     }
     
     setIsLoading(true);
-    setLoginError('');
     
     try {
-      // Qui in futuro faremo la chiamata API per il login
-      // Per ora simulo un login di successo dopo 1 secondo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simula credenziali di test per debug
-      if (formData.email === 'test@example.com' && formData.password === 'password') {
-        // Salva token e informazioni utente in localStorage/sessionStorage
-        localStorage.setItem('isAuthenticated', 'true');
-        console.log('Login effettuato con successo');
-        navigate('/dashboard');
-      } else {
-        setLoginError('Credenziali non valide');
-      }
+      // Usa il servizio di autenticazione reale
+      await login(formData.email, formData.password);
+      toast.showSuccess('Login effettuato con successo');
+      navigate('/dashboard');
     } catch (error) {
+      toast.showError(error.message || 'Errore durante il login');
       console.error('Errore durante il login:', error);
-      setLoginError('Si è verificato un errore durante il login');
     } finally {
       setIsLoading(false);
     }
