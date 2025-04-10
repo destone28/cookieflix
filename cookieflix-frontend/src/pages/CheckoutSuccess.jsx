@@ -1,134 +1,130 @@
+// src/pages/CheckoutSuccess.jsx
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { verifyCheckoutSession } from '../services/subscriptionService';
 
 const CheckoutSuccess = () => {
-  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('loading'); // loading, success, error
-  const [subscription, setSubscription] = useState(null);
-  const sessionId = searchParams.get('session_id');
+  const [message, setMessage] = useState('');
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
 
   useEffect(() => {
+    // Estrae il session_id dai query params
+    const queryParams = new URLSearchParams(location.search);
+    const sessionId = queryParams.get('session_id');
+    
     const verifySession = async () => {
-      if (!sessionId) {
+      if (!isAuthenticated) {
         setStatus('error');
+        setMessage('Devi essere autenticato per verificare il pagamento');
+        toast.showError('Devi essere autenticato per verificare il pagamento');
+        setTimeout(() => navigate('/login'), 3000);
         return;
       }
-      
+
+      if (!sessionId) {
+        setStatus('error');
+        setMessage('Parametro session_id mancante. Impossibile verificare il pagamento.');
+        toast.showError('Impossibile verificare il pagamento');
+        return;
+      }
+
       try {
         const result = await verifyCheckoutSession(sessionId);
-        setSubscription(result);
-        setStatus('success');
+        
+        if (result.status === 'success') {
+          setStatus('success');
+          setMessage(result.message || 'Abbonamento attivato con successo!');
+          toast.showSuccess('Abbonamento attivato con successo!');
+        } else {
+          setStatus('pending');
+          setMessage(result.message || 'Il pagamento è in fase di elaborazione. Riceverai una conferma a breve.');
+          toast.showInfo('Il pagamento è in fase di elaborazione');
+        }
       } catch (error) {
-        console.error('Verification error:', error);
+        console.error('Errore nella verifica del pagamento:', error);
         setStatus('error');
+        setMessage('Si è verificato un errore durante la verifica del pagamento. Contatta il supporto.');
+        toast.showError('Errore nella verifica del pagamento');
       }
     };
-    
-    verifySession();
-  }, [sessionId]);
 
-  const renderContent = () => {
-    switch (status) {
-      case 'loading':
-        return (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-lg">Stiamo verificando il tuo abbonamento...</p>
-          </div>
-        );
-      
-      case 'success':
-        return (
-          <>
-            <div className="text-center mb-8">
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Pagamento completato con successo!</h2>
-              <p className="text-gray-600">Il tuo abbonamento a Cookieflix è ora attivo.</p>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h3 className="text-xl font-semibold mb-4">Dettagli abbonamento</h3>
-              {subscription && (
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Piano:</span>
-                    <span className="font-medium">{subscription.plan.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Periodicità:</span>
-                    <span className="font-medium">
-                      {
-                        subscription.billing_period === 'monthly' ? 'Mensile' :
-                        subscription.billing_period === 'quarterly' ? 'Trimestrale' :
-                        subscription.billing_period === 'semiannual' ? 'Semestrale' : 'Annuale'
-                      }
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Data attivazione:</span>
-                    <span className="font-medium">
-                      {new Date(subscription.start_date).toLocaleDateString('it-IT')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Prossimo addebito:</span>
-                    <span className="font-medium">
-                      {new Date(subscription.next_billing_date).toLocaleDateString('it-IT')}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="text-center space-y-4">
-              <p className="text-lg">È ora di scegliere le tue categorie preferite!</p>
-              <Link 
-                to="/category-selection" 
-                className="inline-block bg-primary text-white px-6 py-3 rounded-md hover:bg-opacity-90 transition-colors"
-              >
-                Seleziona le tue categorie
-              </Link>
-              <div className="pt-2">
-                <Link 
-                  to="/dashboard" 
-                  className="text-secondary hover:text-primary underline"
-                >
-                  Vai alla dashboard
-                </Link>
-              </div>
-            </div>
-          </>
-        );
-      
-      case 'error':
-        return (
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Si è verificato un errore</h2>
-            <p className="text-gray-600 mb-6">Non è stato possibile verificare il tuo abbonamento.</p>
-            <Link 
-              to="/subscription" 
-              className="inline-block bg-primary text-white px-6 py-3 rounded-md hover:bg-opacity-90 transition-colors"
-            >
-              Riprova
-            </Link>
-          </div>
-        );
+    verifySession();
+  }, [isAuthenticated, location.search, navigate, toast]);
+
+  // Gestisce il click sul pulsante
+  const handleButtonClick = () => {
+    if (status === 'success') {
+      navigate('/categories'); // Vai alla selezione categorie
+    } else if (status === 'error') {
+      navigate('/subscription'); // Torna alla pagina abbonamento
+    } else {
+      navigate('/dashboard'); // Vai alla dashboard
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      {renderContent()}
+    <div className="max-w-lg mx-auto mt-12 p-6 bg-white rounded-lg shadow-lg">
+      <div className="text-center">
+        {status === 'loading' && (
+          <>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <h2 className="text-2xl font-semibold mt-6 mb-2">Verifica del pagamento in corso...</h2>
+            <p className="text-gray-600">Stiamo verificando lo stato del tuo pagamento. Attendi qualche istante.</p>
+          </>
+        )}
+
+        {status === 'success' && (
+          <>
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold mt-6 mb-2">Pagamento completato con successo!</h2>
+            <p className="text-gray-600 mb-6">{message}</p>
+            <p className="text-gray-600 mb-6">Ora puoi selezionare le tue categorie preferite per iniziare a ricevere i tuoi cookie cutters mensili.</p>
+          </>
+        )}
+
+        {status === 'pending' && (
+          <>
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold mt-6 mb-2">Pagamento in elaborazione</h2>
+            <p className="text-gray-600 mb-6">{message}</p>
+          </>
+        )}
+
+        {status === 'error' && (
+          <>
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold mt-6 mb-2">Si è verificato un errore</h2>
+            <p className="text-gray-600 mb-6">{message}</p>
+          </>
+        )}
+
+        <button
+          onClick={handleButtonClick}
+          className="w-full py-3 rounded-md text-white font-medium transition-colors bg-primary hover:bg-opacity-90"
+        >
+          {status === 'success' ? 'Seleziona le tue categorie' : 
+           status === 'error' ? 'Torna agli abbonamenti' : 
+           'Vai alla dashboard'}
+        </button>
+      </div>
     </div>
   );
 };

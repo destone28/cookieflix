@@ -73,13 +73,31 @@ const StripeCheckout = ({ plan, billingPeriod }) => {
       
       // Reindirizza l'utente alla pagina di checkout di Stripe
       if (response.checkout_url) {
-        // Mostra un messaggio informativo
+        // Per i test, mostra le credenziali di test
         toast.showSuccess('Verrai reindirizzato alla pagina di pagamento...');
         
-        // Per i test, mostra le credenziali di test
-        console.log('Per i test, usa la carta 4242 4242 4242 4242 con qualsiasi data futura e CVC');
+        // Ottieni l'URL di base per le redirect
+        const baseUrl = window.location.origin;
         
-        window.location.href = response.checkout_url;
+        // Modifica l'URL di redirect success per usare la pagina frontend
+        // Il backend redirecterà alla pagina frontend dopo la verifica
+        let checkoutUrl = response.checkout_url;
+        if (checkoutUrl.includes('success_url=')) {
+          checkoutUrl = checkoutUrl.replace(
+            /success_url=([^&]*)/,
+            `success_url=${encodeURIComponent(`${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`)}`
+          );
+        }
+        
+        // Modifica l'URL di redirect cancel per usare la pagina frontend
+        if (checkoutUrl.includes('cancel_url=')) {
+          checkoutUrl = checkoutUrl.replace(
+            /cancel_url=([^&]*)/,
+            `cancel_url=${encodeURIComponent(`${baseUrl}/checkout/cancel?session_id={CHECKOUT_SESSION_ID}`)}`
+          );
+        }
+        
+        window.location.href = checkoutUrl;
       } else {
         throw new Error('URL di checkout non disponibile');
       }

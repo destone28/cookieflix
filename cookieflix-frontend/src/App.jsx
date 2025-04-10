@@ -14,6 +14,7 @@ import Catalog from './pages/Catalog';
 import Subscription from './pages/Subscription';
 import Profile from './pages/Profile';
 import CheckoutSuccess from './pages/CheckoutSuccess';
+import CheckoutCancel from './pages/CheckoutCancel';
 import CategorySelection from './pages/CategorySelection';
 import NotFound from './pages/NotFound';
 
@@ -45,6 +46,9 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/plans" element={<Subscription />} />
           <Route path="/about-us" element={<Home />} /> {/* Sostituzione temporanea */}
+          {/* Capire se checkout deve essere in routes protette */}
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           
           {/* Rotte protette */}
           <Route path="/dashboard" element={
