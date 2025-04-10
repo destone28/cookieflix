@@ -51,17 +51,26 @@ app = FastAPI(
 )
 
 # Middleware CORS
+# allow_origins=[settings.FRONTEND_URL, "https://cdn.jsdelivr.net", "http://localhost:5173"],
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "https://cdn.jsdelivr.net"],
+    allow_origins=["*"],  # In development, allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/api")
+def read_api_root():
+    return {"message": f"Benvenuto su {settings.PROJECT_NAME} API"}
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "message": "Backend API is running"}
+
 # Middleware per logging e sicurezza
 @app.middleware("http")
-async def log_and_add_headers(request: Request, call_next):
+async def unified_security_middleware(request: Request, call_next):
     # Logging
     start_time = time.time()
     response = await call_next(request)
@@ -71,7 +80,9 @@ async def log_and_add_headers(request: Request, call_next):
     # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; img-src 'self' data:;"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     
     return response
 
@@ -98,32 +109,6 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
-
-@app.middleware("http")
-async def security_middleware(request: Request, call_next):
-    # Logging
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.4f}s")
-    
-    # Security headers
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:;"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
-    return response
-
-@app.get("/health")
-def health_check():
-    """Endpoint per verificare lo stato di salute del servizio"""
-    return {
-        "status": "healthy",
-        "version": "0.1.0",
-        "time": datetime.utcnow().isoformat()
-    }
 
 # Aggiunta a app/main.py
 @app.exception_handler(HTTPException)

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import ApiIntegrationBanner from '../components/ApiIntegrationBanner';
 
 const Home = () => {
   // Simuliamo dati che in futuro verranno dall'API
@@ -121,6 +122,10 @@ const Home = () => {
 
   return (
     <div>
+
+      {/* Banner di test API - solo in ambiente di sviluppo */}
+      {import.meta.env.DEV && <ApiIntegrationBanner />}
+      
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary to-secondary text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

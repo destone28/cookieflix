@@ -1,9 +1,11 @@
-// Aggiornamento finale di App.jsx per includere ErrorBoundary
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// src/App.jsx - Ripristino completo
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
+
+// Importiamo tutte le pagine
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -14,7 +16,6 @@ import Profile from './pages/Profile';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CategorySelection from './pages/CategorySelection';
 import NotFound from './pages/NotFound';
-import './index.css';
 
 // Componente per le rotte protette
 const ProtectedRoute = ({ children }) => {
@@ -35,69 +36,53 @@ const ProtectedRoute = ({ children }) => {
 
 function AppRoutes() {
   return (
-    <Router>
+    <BrowserRouter>
       <Layout>
         <Routes>
           {/* Rotte pubbliche */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/piani" element={<Subscription />} />
+          <Route path="/chi-siamo" element={<Home />} /> {/* Sostituzione temporanea */}
           
           {/* Rotte protette */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/catalog" 
-            element={
-              <ProtectedRoute>
-                <Catalog />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/subscription" 
-            element={
-              <ProtectedRoute>
-                <Subscription />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/checkout/success" 
-            element={
-              <ProtectedRoute>
-                <CheckoutSuccess />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/category-selection" 
-            element={
-              <ProtectedRoute>
-                <CategorySelection />
-              </ProtectedRoute>
-            } 
-          />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/catalogo" element={
+            <ProtectedRoute>
+              <Catalog />
+            </ProtectedRoute>
+          } />
+          <Route path="/abbonamenti" element={
+            <ProtectedRoute>
+              <Subscription />
+            </ProtectedRoute>
+          } />
+          <Route path="/profilo" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/checkout/success" element={
+            <ProtectedRoute>
+              <CheckoutSuccess />
+            </ProtectedRoute>
+          } />
+          <Route path="/categorie" element={
+            <ProtectedRoute>
+              <CategorySelection />
+            </ProtectedRoute>
+          } />
           
-          {/* Pagina non trovata */}
+          {/* Rotta 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
-    </Router>
+    </BrowserRouter>
   );
 }
 
