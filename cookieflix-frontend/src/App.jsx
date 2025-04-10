@@ -16,7 +16,6 @@ import Profile from './pages/Profile';
 import CheckoutSuccess from './pages/CheckoutSuccess';
 import CategorySelection from './pages/CategorySelection';
 import NotFound from './pages/NotFound';
-import ApiDebugger from './components/ApiDebugger';
 
 // Componente per le rotte protette
 const ProtectedRoute = ({ children }) => {
@@ -53,7 +52,7 @@ function AppRoutes() {
               <Dashboard />
             </ProtectedRoute>
           } />
-          <Route path="/catalogo" element={
+          <Route path="/catalog" element={
             <ProtectedRoute>
               <Catalog />
             </ProtectedRoute>
@@ -96,7 +95,7 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <AppRoutes />
-          {import.meta.env.DEV && <ApiDebugger />}
+          {import.meta.env.DEV}
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

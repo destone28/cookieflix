@@ -1,15 +1,21 @@
+// src/pages/Catalog.jsx (aggiornato)
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { getCategories, getDesigns, voteForDesign, getUserVotes } from '../services/productService';
 
 const Catalog = () => {
+  const { user, isAuthenticated } = useAuth();
+  const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || 'all';
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [categories, setCategories] = useState([]);
   const [designs, setDesigns] = useState([]);
   const [filteredDesigns, setFilteredDesigns] = useState([]);
+  const [userVotedDesigns, setUserVotedDesigns] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [sortOrder, setSortOrder] = useState('popular');
   const [viewMode, setViewMode] = useState('grid');
@@ -23,63 +29,54 @@ const Catalog = () => {
   const [voteSuccess, setVoteSuccess] = useState(false);
   const [voteError, setVoteError] = useState('');
 
-  // Verifica autenticazione
+  // Carica categorie, design e voti dell'utente
   useEffect(() => {
-    const checkAuth = () => {
-      const auth = localStorage.getItem('isAuthenticated') === 'true';
-      setIsAuthenticated(auth);
-      return auth;
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Carica dati in parallelo
+        const [categoriesData, designsData, votesData] = await Promise.all([
+          getCategories(),
+          getDesigns(),
+          isAuthenticated ? getUserVotes().catch(() => []) : Promise.resolve([])
+        ]);
+        
+        // Formatta categorie con conteggio
+        const formattedCategories = categoriesData.map(category => {
+          const count = designsData.filter(design => 
+            design.category_id === category.id
+          ).length;
+          
+          return {
+            ...category,
+            count
+          };
+        });
+        
+        // Identifica design già votati dall'utente
+        const votedDesignIds = votesData.map(design => design.id);
+        
+        // Formatta i design con indicatore di voto
+        const formattedDesigns = designsData.map(design => {
+          return {
+            ...design,
+            hasVoted: votedDesignIds.includes(design.id)
+          };
+        });
+        
+        setCategories(formattedCategories);
+        setDesigns(formattedDesigns);
+        setUserVotedDesigns(votedDesignIds);
+      } catch (error) {
+        console.error('Error fetching catalog data:', error);
+        toast.showError('Errore nel caricamento del catalogo');
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    checkAuth();
-  }, []);
-
-  // Carica categorie e design (simulato)
-  useEffect(() => {
-    // Simula il caricamento dei dati
-    setTimeout(() => {
-      // Categorie
-      const categoriesData = [
-        { id: 1, name: 'Serie TV e Film', slug: 'serie-tv-film', count: 25 },
-        { id: 2, name: 'Videogiochi', slug: 'videogiochi', count: 18 },
-        { id: 3, name: 'Feste Stagionali', slug: 'feste-stagionali', count: 12 },
-        { id: 4, name: 'Animali e Creature', slug: 'animali-creature', count: 20 },
-        { id: 5, name: 'Architettura', slug: 'architettura-monumenti', count: 8 },
-        { id: 6, name: 'Botanica e Fiori', slug: 'botanica-fiori', count: 15 },
-        { id: 7, name: 'Sport e Squadre', slug: 'sport-squadre', count: 10 },
-        { id: 8, name: 'Professioni', slug: 'professioni-hobby', count: 14 }
-      ];
-      
-      // Design
-      const designsData = Array.from({ length: 50 }, (_, i) => {
-        const categoryIndex = Math.floor(Math.random() * categoriesData.length);
-        const category = categoriesData[categoryIndex];
-        const votes = Math.floor(Math.random() * 150);
-        const daysAgo = Math.floor(Math.random() * 60);
-        const date = new Date();
-        date.setDate(date.getDate() - daysAgo);
-        
-        return {
-          id: i + 1,
-          name: `Design ${i + 1}`,
-          description: `Questa è la descrizione per il design ${i + 1}. Un cookie cutter unico con dettagli incredibili.`,
-          image: `https://placehold.co/400x400?text=Design+${i + 1}`,
-          category: {
-            id: category.id,
-            name: category.name,
-            slug: category.slug
-          },
-          votes: votes,
-          createdAt: date.toISOString(),
-          hasVoted: Math.random() > 0.8 // 20% di probabilità che l'utente abbia già votato
-        };
-      });
-      
-      setCategories(categoriesData);
-      setDesigns(designsData);
-      setIsLoading(false);
-    }, 1000);
-  }, []);
+    fetchData();
+  }, [isAuthenticated, toast]);
 
   // Filtra e ordina i design quando cambiano i filtri
   useEffect(() => {
@@ -89,21 +86,22 @@ const Catalog = () => {
     
     // Filtra per categoria
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(design => 
-        design.category.slug === selectedCategory
-      );
+      filtered = filtered.filter(design => {
+        const categorySlug = categories.find(c => c.id === design.category_id)?.slug;
+        return categorySlug === selectedCategory;
+      });
     }
     
     // Ordina
     switch (sortOrder) {
       case 'popular':
-        filtered.sort((a, b) => b.votes - a.votes);
+        filtered.sort((a, b) => (b.votes_count || 0) - (a.votes_count || 0));
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         break;
       case 'oldest':
-        filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         break;
       case 'alphabetical':
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -114,7 +112,7 @@ const Catalog = () => {
     
     setFilteredDesigns(filtered);
     setCurrentPage(1); // Reset alla prima pagina quando cambiano i filtri
-  }, [designs, selectedCategory, sortOrder]);
+  }, [designs, selectedCategory, sortOrder, categories]);
 
   // Aggiorna i parametri URL quando cambia la categoria
   useEffect(() => {
@@ -173,32 +171,25 @@ const Catalog = () => {
     
     if (!selectedDesign) return;
     
+    // Verifica se l'utente ha già votato questo design
+    if (selectedDesign.hasVoted) {
+      setVoteError('Hai già votato per questo design');
+      return;
+    }
+    
     setIsVoting(true);
     setVoteError('');
     
     try {
-      // Simula chiamata API per il voto
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Chiamata API per votare
+      await voteForDesign(selectedDesign.id);
       
-      // Simulazione verifiche
-      const monthlyVotesForCategory = designs
-        .filter(d => d.category.id === selectedDesign.category.id && d.hasVoted)
-        .length;
-      
-      if (selectedDesign.hasVoted) {
-        throw new Error('Hai già votato per questo design');
-      }
-      
-      if (monthlyVotesForCategory >= 3) {
-        throw new Error('Hai raggiunto il limite di 3 voti mensili per questa categoria');
-      }
-      
-      // Aggiorna lo stato locale per riflettere il voto
+      // Aggiorna i dati locali
       const updatedDesigns = designs.map(design => {
         if (design.id === selectedDesign.id) {
           return {
             ...design,
-            votes: design.votes + 1,
+            votes_count: (design.votes_count || 0) + 1,
             hasVoted: true
           };
         }
@@ -206,13 +197,30 @@ const Catalog = () => {
       });
       
       setDesigns(updatedDesigns);
-      setSelectedDesign({ ...selectedDesign, votes: selectedDesign.votes + 1, hasVoted: true });
+      setSelectedDesign({
+        ...selectedDesign,
+        votes_count: (selectedDesign.votes_count || 0) + 1,
+        hasVoted: true
+      });
+      
       setVoteSuccess(true);
+      toast.showSuccess('Voto registrato con successo!');
     } catch (error) {
-      setVoteError(error.message);
+      console.error('Vote error:', error);
+      setVoteError(error.message || 'Errore durante il voto');
     } finally {
       setIsVoting(false);
     }
+  };
+
+  // Formatta data
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('it-IT');
+  };
+
+  // Ottieni il nome della categoria
+  const getCategoryName = (categoryId) => {
+    return categories.find(c => c.id === categoryId)?.name || '';
   };
 
   // Mostra loading
@@ -335,7 +343,11 @@ const Catalog = () => {
             </div>
 
             {/* Design in modalità griglia o lista */}
-            {viewMode === 'grid' ? (
+            {filteredDesigns.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                <p className="text-lg mb-4">Nessun design trovato in questa categoria.</p>
+              </div>
+            ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentDesigns.map((design) => (
                   <div 
@@ -345,12 +357,12 @@ const Catalog = () => {
                   >
                     <div className="relative">
                       <img 
-                        src={design.image} 
+                        src={design.image_url || `https://placehold.co/400x400?text=${encodeURIComponent(design.name)}`}
                         alt={design.name} 
                         className="w-full h-48 object-cover"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                        <span className="text-xs text-white font-medium">{design.category.name}</span>
+                        <span className="text-xs text-white font-medium">{getCategoryName(design.category_id)}</span>
                       </div>
                       {design.hasVoted && (
                         <div className="absolute top-2 right-2 bg-primary text-white text-xs py-1 px-2 rounded-full">
@@ -363,13 +375,13 @@ const Catalog = () => {
                       <p className="text-gray-500 text-sm mb-2 line-clamp-2">{design.description}</p>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">
-                          {new Date(design.createdAt).toLocaleDateString('it-IT')}
+                          {formatDate(design.created_at)}
                         </span>
                         <div className="flex items-center text-sm font-medium">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
                           </svg>
-                          {design.votes}
+                          {design.votes_count || 0}
                         </div>
                       </div>
                     </div>
@@ -386,7 +398,7 @@ const Catalog = () => {
                   >
                     <div className="flex">
                       <img 
-                        src={design.image} 
+                        src={design.image_url || `https://placehold.co/300x300?text=${encodeURIComponent(design.name)}`} 
                         alt={design.name} 
                         className="w-24 h-24 sm:w-32 sm:h-32 object-cover"
                       />
@@ -394,7 +406,7 @@ const Catalog = () => {
                         <div className="flex justify-between">
                           <div>
                             <h3 className="font-bold">{design.name}</h3>
-                            <span className="text-xs text-gray-500">{design.category.name}</span>
+                            <span className="text-xs text-gray-500">{getCategoryName(design.category_id)}</span>
                           </div>
                           <div className="flex items-center">
                             {design.hasVoted && (
@@ -406,7 +418,7 @@ const Catalog = () => {
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary mr-1" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
                               </svg>
-                              {design.votes}
+                              {design.votes_count || 0}
                             </div>
                           </div>
                         </div>
@@ -414,7 +426,7 @@ const Catalog = () => {
                           {design.description}
                         </p>
                         <div className="mt-2 text-sm text-gray-600">
-                          {new Date(design.createdAt).toLocaleDateString('it-IT')}
+                          {formatDate(design.created_at)}
                         </div>
                       </div>
                     </div>
@@ -504,7 +516,7 @@ const Catalog = () => {
                     <div className="flex flex-col md:flex-row gap-6">
                       <div className="md:w-1/2">
                         <img 
-                          src={selectedDesign.image} 
+                          src={selectedDesign.image_url || `https://placehold.co/600x600?text=${encodeURIComponent(selectedDesign.name)}`} 
                           alt={selectedDesign.name} 
                           className="w-full rounded-lg h-64 object-contain bg-gray-100"
                         />
@@ -512,10 +524,10 @@ const Catalog = () => {
                         <div className="mt-4 flex items-center justify-between">
                           <div className="flex items-center">
                             <span className="bg-secondary bg-opacity-10 text-secondary text-xs py-1 px-2 rounded-full">
-                              {selectedDesign.category.name}
+                              {getCategoryName(selectedDesign.category_id)}
                             </span>
                             <span className="text-sm text-gray-500 ml-3">
-                              {new Date(selectedDesign.createdAt).toLocaleDateString('it-IT')}
+                              {formatDate(selectedDesign.created_at)}
                             </span>
                           </div>
                           
@@ -523,7 +535,7 @@ const Catalog = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary mr-1" viewBox="0 0 20 20" fill="currentColor">
                               <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
                             </svg>
-                            {selectedDesign.votes} voti
+                            {selectedDesign.votes_count || 0} voti
                           </div>
                         </div>
                       </div>
