@@ -29,3 +29,25 @@
   gap: 0.5rem;
   z-index: 9999;
 }
+
+/* Logo in Navbar */
+.navbar-logo {
+  height: auto;
+  width: auto;
+  max-height: 2.5rem; /* 40px su mobile */
+  max-width: 180px;
+}
+
+@media (min-width: 640px) {
+  .navbar-logo {
+    max-height: 3rem; /* 48px su tablet */
+    max-width: 220px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .navbar-logo {
+    max-height: 3.5rem; /* 56px su desktop */
+    max-width: 260px;
+  }
+}

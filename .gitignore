@@ -43,6 +43,4 @@ var/
 app/static/uploads/*
 !app/static/uploads/.gitkeep
 logs/cookieflix.log
-logs/cookieflix.log
-logs/cookieflix.log
 logs/*.log
