@@ -17,8 +17,9 @@ const CheckoutCancel = () => {
     const sessionId = queryParams.get('session_id');
     
     if (sessionId) {
-      // Questa richiesta è opzionale e potrebbe essere gestita in modo asincrono
-      fetch(`/api/subscriptions/cancel-checkout?session_id=${sessionId}`);
+      // Questa richiesta è opzionale
+      fetch(`/api/subscriptions/cancel-checkout?session_id=${sessionId}`)
+        .catch(err => console.error('Errore nel notificare l\'annullamento:', err));
     }
   }, [location.search, toast]);
 
@@ -36,7 +37,7 @@ const CheckoutCancel = () => {
         </p>
         <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
           <button
-            onClick={() => navigate('/subscription')}
+            onClick={() => navigate('/plans')}
             className="flex-1 py-3 rounded-md text-white font-medium transition-colors bg-primary hover:bg-opacity-90"
           >
             Torna agli abbonamenti

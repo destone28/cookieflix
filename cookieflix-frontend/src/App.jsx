@@ -1,4 +1,4 @@
-// src/App.jsx (aggiornato con rotte uniformi)
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -46,7 +46,6 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/plans" element={<Subscription />} />
           <Route path="/about-us" element={<Home />} /> {/* Sostituzione temporanea */}
-          {/* Capire se checkout deve essere in routes protette */}
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
           
@@ -69,11 +68,6 @@ function AppRoutes() {
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
-            </ProtectedRoute>
-          } />
-          <Route path="/checkout/success" element={
-            <ProtectedRoute>
-              <CheckoutSuccess />
             </ProtectedRoute>
           } />
           <Route path="/categories" element={

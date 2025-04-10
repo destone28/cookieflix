@@ -5,11 +5,13 @@ import json, logging
 from typing import List, Optional
 from datetime import datetime, timedelta
 
+import stripe
+
 from app.schemas import subscription as schemas
 from app.models.subscription import SubscriptionPlan, Subscription
 from app.models.user import User
 from app.models.product import Category
-from app.utils.auth import get_current_active_user, get_current_admin_user
+from app.utils.auth import get_current_active_user, get_current_admin_user, get_current_user_optional
 from app.utils.payments import (
     create_stripe_customer, create_stripe_checkout_session,
     PLAN_MAPPING, calculate_next_billing_date
@@ -213,24 +215,155 @@ async def update_subscription_categories(
     
     return {"status": "success", "categories": categories}
 
+# app/routers/subscriptions.py
+# Modifica l'endpoint verify-session per renderlo pubblico
+
+@router.get("/verify-session/{session_id}", dependencies=[])  # Rimuovi qualsiasi dipendenza di autenticazione
+async def verify_checkout_session(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """Verifica una sessione di checkout Stripe - endpoint pubblico"""
+    try:
+        # Recupera la sessione da Stripe
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Verifica se la sessione è stata pagata
+        if session.payment_status != "paid":
+            logger.info(f"Sessione non pagata: {session_id}")
+            return {
+                "status": "pending",
+                "message": "Il pagamento non è ancora stato completato"
+            }
+        
+        # Estrai l'ID utente dai metadati della sessione
+        user_id = session.metadata.get("user_id")
+        if not user_id:
+            logger.error(f"Metadati utente mancanti nella sessione: {session_id}")
+            return {
+                "status": "error",
+                "message": "Impossibile identificare l'utente per questa sessione"
+            }
+        
+        # Trova l'utente nel database
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.error(f"Utente non trovato: {user_id}")
+            return {
+                "status": "error",
+                "message": "Utente non trovato"
+            }
+        
+        # Controlla se esiste già un abbonamento per questa sessione
+        existing_subscription = db.query(Subscription).filter(
+            Subscription.user_id == user_id,
+            Subscription.stripe_subscription_id == session.subscription
+        ).first()
+        
+        if existing_subscription:
+            logger.info(f"Abbonamento già esistente per la sessione: {session_id}")
+            return {
+                "status": "success",
+                "message": "Abbonamento già attivato",
+                "subscription_id": existing_subscription.id
+            }
+        
+        # Ottieni i metadati dalla sessione
+        plan_id = session.metadata.get("plan_id")
+        billing_period = session.metadata.get("billing_period")
+        
+        # Ottieni il piano
+        plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+        if not plan:
+            logger.error(f"Piano non trovato: {plan_id}")
+            return {
+                "status": "error",
+                "message": "Piano non trovato"
+            }
+        
+        # Calcola le date di inizio e fine abbonamento
+        start_date = datetime.utcnow()
+        end_date = calculate_next_billing_date(billing_period)
+        
+        # Crea l'abbonamento
+        subscription = Subscription(
+            user_id=user_id,
+            plan_id=plan_id,
+            start_date=start_date,
+            end_date=end_date,
+            is_active=True,
+            billing_period=billing_period,
+            next_billing_date=end_date,
+            stripe_customer_id=session.customer,
+            stripe_subscription_id=session.subscription
+        )
+        
+        db.add(subscription)
+        db.commit()
+        db.refresh(subscription)
+        
+        logger.info(f"Abbonamento creato con successo: {subscription.id}")
+        
+        return {
+            "status": "success",
+            "message": "Abbonamento attivato con successo",
+            "subscription_id": subscription.id,
+            "session_id": session_id
+        }
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Errore Stripe: {e}")
+        return {
+            "status": "error",
+            "message": f"Errore durante la verifica: {str(e)}"
+        }
+    except Exception as e:
+        logger.error(f"Errore nella verifica della sessione: {e}")
+        return {
+            "status": "error",
+            "message": "Errore interno del server"
+        }
+
+@router.get("/cancel-checkout")
+async def cancel_checkout(
+    session_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Gestisce l'annullamento di un checkout"""
+    logger.info(f"Checkout annullato dall'utente {current_user.id} - Sessione: {session_id}")
+    
+    return {
+        "status": "cancelled",
+        "message": "Checkout annullato dall'utente"
+    }
+
 @router.get("/verify-session/{session_id}")
 async def verify_checkout_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """Verifica una sessione di checkout Stripe e conferma l'abbonamento"""
     try:
         # Recupera la sessione da Stripe
         session = stripe.checkout.Session.retrieve(session_id)
         
+        # Se l'utente non è autenticato, richiedi login
+        if not current_user:
+            logger.info(f"Verifica sessione {session_id} richiede autenticazione")
+            return {
+                "status": "requires_login",
+                "message": "Per verificare lo stato dell'abbonamento è necessario accedere"
+            }
+        
         # Verifica che la sessione appartenga all'utente corrente
-        if session.metadata.get("user_id") != str(current_user.id):
+        user_id_from_session = session.metadata.get("user_id")
+        if user_id_from_session and str(user_id_from_session) != str(current_user.id):
             logger.warning(f"Tentativo di verifica sessione di un altro utente: {session_id}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Non hai il permesso di verificare questa sessione"
-            )
+            return {
+                "status": "error",
+                "message": "Non hai il permesso di verificare questa sessione"
+            }
         
         # Verifica se la sessione è stata pagata
         if session.payment_status != "paid":
@@ -262,10 +395,10 @@ async def verify_checkout_session(
         plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
         if not plan:
             logger.error(f"Piano non trovato: {plan_id}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Piano non trovato"
-            )
+            return {
+                "status": "error",
+                "message": "Piano non trovato"
+            }
         
         # Calcola le date di inizio e fine abbonamento
         start_date = datetime.utcnow()
@@ -298,26 +431,25 @@ async def verify_checkout_session(
         
     except stripe.error.StripeError as e:
         logger.error(f"Errore Stripe: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Errore Stripe: {str(e)}"
-        )
+        return {
+            "status": "error",
+            "message": f"Errore durante la verifica: {str(e)}"
+        }
     except Exception as e:
         logger.error(f"Errore nella verifica della sessione: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Errore interno del server"
-        )
-
+        return {
+            "status": "error",
+            "message": "Errore interno del server"
+        }
+    
 @router.get("/cancel-checkout")
 async def cancel_checkout(
-    session_id: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user)
+    session_id: Optional[str] = Query(None)
 ):
     """Gestisce l'annullamento di un checkout"""
-    logger.info(f"Checkout annullato dall'utente {current_user.id} - Sessione: {session_id}")
+    logger.info(f"Checkout annullato - Sessione: {session_id}")
     
     return {
         "status": "cancelled",
-        "message": "Checkout annullato dall'utente"
+        "message": "Checkout annullato"
     }
