@@ -1,5 +1,6 @@
 # app/routers/subscriptions.py
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import json, logging
 from typing import List, Optional
@@ -122,20 +123,23 @@ async def create_checkout_session(
     else:
         stripe_customer_id = current_user.stripe_customer_id
     
-    # Ottieni l'URL di base
+    # Ottieni URL di base con percorso API corretto
     base_url = str(request.base_url).rstrip('/')
+    api_prefix = settings.API_PREFIX
     
-    # Crea session checkout con URL aggiornati
-    success_url = f"{base_url}/api/subscriptions/verify-session/{{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{base_url}/api/subscriptions/cancel-checkout?session_id={{CHECKOUT_SESSION_ID}}"
+    # Assicurati che l'URL di redirect includa anche il prefisso API
+    success_url = f"{base_url}{api_prefix}/subscriptions/redirect-success/{{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{base_url}{api_prefix}/subscriptions/redirect-cancel/{{CHECKOUT_SESSION_ID}}"
+    
+    logger.info(f"Creazione checkout per utente {current_user.id}, piano {plan.id}, periodo {checkout_data.billing_period}")
+    logger.info(f"URL di successo: {success_url}")
+    logger.info(f"URL di annullamento: {cancel_url}")
     
     metadata = {
         "user_id": current_user.id,
         "plan_id": plan.id,
         "billing_period": checkout_data.billing_period
     }
-    
-    logger.info(f"Creazione checkout per utente {current_user.id}, piano {plan.id}, periodo {checkout_data.billing_period}")
     
     checkout_session = create_stripe_checkout_session(
         customer_id=stripe_customer_id,
@@ -215,18 +219,16 @@ async def update_subscription_categories(
     
     return {"status": "success", "categories": categories}
 
-# app/routers/subscriptions.py
-# Modifica l'endpoint verify-session per renderlo pubblico
-
-@router.get("/verify-session/{session_id}", dependencies=[])  # Rimuovi qualsiasi dipendenza di autenticazione
+@router.get("/verify-session/{session_id}")
 async def verify_checkout_session(
     session_id: str,
     db: Session = Depends(get_db)
 ):
-    """Verifica una sessione di checkout Stripe - endpoint pubblico"""
+    """Verifica una sessione di checkout Stripe"""
     try:
         # Recupera la sessione da Stripe
         session = stripe.checkout.Session.retrieve(session_id)
+        logger.info(f"Sessione recuperata: {session.id}, stato pagamento: {session.payment_status}")
         
         # Verifica se la sessione è stata pagata
         if session.payment_status != "paid":
@@ -265,7 +267,8 @@ async def verify_checkout_session(
             return {
                 "status": "success",
                 "message": "Abbonamento già attivato",
-                "subscription_id": existing_subscription.id
+                "subscription_id": existing_subscription.id,
+                "session_id": session_id
             }
         
         # Ottieni i metadati dalla sessione
@@ -453,3 +456,41 @@ async def cancel_checkout(
         "status": "cancelled",
         "message": "Checkout annullato"
     }
+
+@router.get("/redirect-success/{session_id}")
+async def redirect_success(
+    session_id: str,
+    request: Request
+):
+    """Redirect alla pagina di successo frontend dopo la verifica della sessione"""
+    frontend_url = settings.FRONTEND_URL
+    return RedirectResponse(url=f"{frontend_url}/checkout/success?session_id={session_id}")
+
+@router.get("/redirect-cancel/{session_id}")
+async def redirect_cancel(
+    session_id: str,
+    request: Request
+):
+    """Redirect alla pagina di annullamento frontend dopo l'annullamento del checkout"""
+    frontend_url = settings.FRONTEND_URL
+    return RedirectResponse(url=f"{frontend_url}/checkout/cancel?session_id={session_id}")
+
+@router.get("/redirect-success/{session_id}")
+async def redirect_success(
+    session_id: str,
+    request: Request
+):
+    """Redirect alla pagina di successo frontend dopo la verifica della sessione"""
+    frontend_url = settings.FRONTEND_URL
+    logger.info(f"Redirecting to success page with session: {session_id}")
+    return RedirectResponse(url=f"{frontend_url}/checkout/success?session_id={session_id}")
+
+@router.get("/redirect-cancel/{session_id}")
+async def redirect_cancel(
+    session_id: str,
+    request: Request
+):
+    """Redirect alla pagina di annullamento frontend dopo l'annullamento del checkout"""
+    frontend_url = settings.FRONTEND_URL
+    logger.info(f"Redirecting to cancel page with session: {session_id}")
+    return RedirectResponse(url=f"{frontend_url}/checkout/cancel?session_id={session_id}")
