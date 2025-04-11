@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getActiveSubscription } from '../services/subscriptionService';
 import { getDesigns, getUserVotes } from '../services/productService';
+import ShipmentHistory from '../components/ShipmentHistory';
+import PreferredCategories from '../components/PreferredCategories';
+import UserDesignGallery from '../components/UserDesignGallery';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -226,6 +229,28 @@ const Dashboard = () => {
           )}
         </div>
       )}
+
+      {/* Cronologia spedizioni */}
+      {subscription && (
+        <div className="mb-10">
+          <h2 className="text-2xl font-semibold mb-4">Le tue spedizioni</h2>
+          <ShipmentHistory />
+        </div>
+      )}
+
+      {/* Categorie preferite */}
+      {subscription && (
+        <div className="mb-10">
+          <h2 className="text-2xl font-semibold mb-4">Le tue categorie preferite</h2>
+          <PreferredCategories />
+        </div>
+      )}
+
+      {/* Galleria design */}
+      <div className="mb-10">
+        <h2 className="text-2xl font-semibold mb-4">I tuoi cookie cutters</h2>
+        <UserDesignGallery />
+      </div>
       
       {/* Link rapidi */}
       <div>

@@ -43,3 +43,4 @@ class User(Base):
     subscriptions = relationship("Subscription", back_populates="user")
     votes = relationship("Vote", back_populates="user")
     preferred_categories = relationship("Category", secondary=user_category_preference)
+    shipments = relationship("Shipment", back_populates="user")

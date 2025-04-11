@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getActiveSubscription } from '../services/subscriptionService';
 import { updateUserProfile, getCurrentUserProfile } from '../services/userService';
+import SecurityPanel from '../components/SecurityPanel';
+import AccountDeletion from '../components/AccountDeletion';
 
 const Profile = () => {
   const { user, loading, logout, setUser } = useAuth();
@@ -474,6 +476,16 @@ const Profile = () => {
         )}
       </div>
       
+      {/* Sicurezza */}
+      <div className="mb-8">
+        <SecurityPanel />
+      </div>
+
+      {/* Cancellazione account */}
+      <div className="mb-8">
+        <AccountDeletion />
+      </div>
+
       {/* Logout */}
       <div className="mt-8 text-center">
         {!showLogoutConfirm ? (

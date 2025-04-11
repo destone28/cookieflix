@@ -11,7 +11,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, users, products, subscriptions, webhooks
+from app.routers import auth, users, products, subscriptions, webhooks, shipments
 from app.seed import seed_database
 from app.utils.logging import setup_logging
 from app.utils.db_migrations import add_missing_columns
@@ -93,6 +93,7 @@ app.include_router(users.router)
 app.include_router(products.router)
 app.include_router(subscriptions.router)
 app.include_router(webhooks.router)
+app.include_router(shipments.router)
 
 # Cartella statica e template
 try:

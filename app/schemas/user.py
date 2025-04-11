@@ -24,7 +24,6 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    # Nuovi campi per indirizzo e data di nascita
     address: Optional[str] = None
     street_number: Optional[str] = None
     city: Optional[str] = None
@@ -46,7 +45,6 @@ class User(UserBase):
     referral_code: str
     credit_balance: float
     created_at: datetime
-    # Nuovi campi aggiunti al modello di risposta
     address: Optional[str] = None
     street_number: Optional[str] = None
     city: Optional[str] = None
@@ -56,3 +54,16 @@ class User(UserBase):
     
     class Config:
         orm_mode = True
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+    
+    @validator('new_password')
+    def password_strength(cls, v):
+        if not is_strong_password(v):
+            raise ValueError('La password deve contenere almeno 8 caratteri, inclusi maiuscole, minuscole, numeri e caratteri speciali')
+        return v
+
+class AccountDeletionRequest(BaseModel):
+    reason: str
