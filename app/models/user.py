@@ -31,6 +31,14 @@ class User(Base):
     failed_login_attempts = Column(Integer, default=0)
     account_locked_until = Column(DateTime, nullable=True)
     
+    # Nuovi campi per indirizzo e data di nascita
+    address = Column(String, nullable=True)
+    street_number = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    zip_code = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    birthdate = Column(DateTime, nullable=True)
+    
     # Relazioni
     subscriptions = relationship("Subscription", back_populates="user")
     votes = relationship("Vote", back_populates="user")

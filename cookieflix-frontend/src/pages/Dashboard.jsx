@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx (aggiornato)
+// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -61,34 +61,6 @@ const Dashboard = () => {
     fetchData();
   }, [toast]);
 
-  // Formatta la data
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('it-IT');
-  };
-
-  // Determina il messaggio di stato dell'abbonamento
-  const getSubscriptionStatus = () => {
-    if (!subscription) {
-      return {
-        message: 'Non hai un abbonamento attivo',
-        color: 'red',
-        action: {
-          label: 'Abbonati ora',
-          link: '/plans'  // Aggiornato da /subscription a /plans
-        }
-      };
-    }
-    
-    return {
-      message: 'Abbonamento attivo',
-      color: 'green',
-      details: `Prossimo rinnovo: ${formatDate(subscription.next_billing_date)}`
-    };
-  };
-
-  const subscriptionStatus = getSubscriptionStatus();
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -105,53 +77,34 @@ const Dashboard = () => {
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-2">Benvenuto, {user?.full_name || 'Utente'}</h2>
         
-        {/* Stato abbonamento */}
+        {/* Stato abbonamento - semplificato */}
         <div className="flex items-center mt-4">
-          <span className={`h-3 w-3 rounded-full bg-${subscriptionStatus.color}-500 mr-2`}></span>
-          <span className="text-gray-700">{subscriptionStatus.message}</span>
+          <span className={`h-3 w-3 rounded-full ${subscription ? 'bg-green-500' : 'bg-red-500'} mr-2`}></span>
+          <span className="text-gray-700">
+            {subscription ? 'Abbonamento attivo' : 'Nessun abbonamento attivo'}
+          </span>
           
-          {subscriptionStatus.details && (
-            <span className="text-gray-500 ml-2 text-sm">
-              ({subscriptionStatus.details})
-            </span>
-          )}
-          
-          {subscriptionStatus.action && (
+          {!subscription && (
             <Link 
-              to={subscriptionStatus.action.link}
+              to="/plans"
               className="ml-4 text-primary hover:underline"
             >
-              {subscriptionStatus.action.label}
+              Abbonati ora
             </Link>
           )}
         </div>
         
-        {/* Riepilogo credito */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-md">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-600">Credito disponibile</p>
-              <p className="text-2xl font-bold">{(user?.credit_balance || 0).toFixed(2)} €</p>
-            </div>
-            
-            <div className="text-right">
-              <p className="text-gray-600">Codice Referral</p>
-              <div className="flex items-center">
-                <p className="font-medium mr-2">{user?.referral_code || 'N/A'}</p>
-                {user?.referral_code && (
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(user.referral_code);
-                      toast.showSuccess('Codice copiato negli appunti!');
-                    }}
-                    className="text-secondary hover:text-primary text-sm"
-                  >
-                    Copia
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* Riepilogo profilo */}
+        <div className="mt-6 flex justify-end">
+          <Link
+            to="/profile"
+            className="text-secondary hover:text-primary inline-flex items-center"
+          >
+            Gestisci il tuo profilo
+            <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </Link>
         </div>
       </div>
       
@@ -173,7 +126,7 @@ const Dashboard = () => {
               Abbonati per ricevere i cookie cutters mensili!
             </p>
             <Link
-              to="/plans"  // Aggiornato da /subscription a /plans
+              to="/plans"
               className="bg-primary text-white px-6 py-2 rounded-md hover:bg-opacity-90 transition-colors inline-block"
             >
               Scopri i piani
@@ -311,7 +264,7 @@ const Dashboard = () => {
           
           {subscription && (
             <Link 
-              to="/categories"  // Aggiornato da /category-selection a /categories
+              to="/categories"
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
             >
               <h3 className="font-semibold text-lg mb-2">Categorie</h3>

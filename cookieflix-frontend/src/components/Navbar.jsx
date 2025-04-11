@@ -76,12 +76,6 @@ const Navbar = () => {
               >
                 Piani
               </Link>
-              <Link
-                to="/about-us"
-                className={getLinkClasses('/about-us')}
-              >
-                Chi siamo
-              </Link>
               {isAuthenticated && (
                 <>
                   <Link

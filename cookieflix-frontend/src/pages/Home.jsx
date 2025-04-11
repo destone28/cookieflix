@@ -147,7 +147,7 @@ const Home = () => {
                 Cookie Cutters Unici Ogni Mese
               </h1>
               <p className="text-lg mb-8">
-                Abbonati a Cookieflix e ricevi ogni mese cookie cutters 3D unici, scelti dalla community e spediti direttamente a casa tua.
+                Abbonati a Cookieflix e ricevi ogni mese cookie cutters unici,<br></br> scelti dalla community e spediti direttamente a casa tua.
               </p>
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                 <Link to="/subscription" className="bg-white text-primary px-6 py-3 rounded-lg font-bold text-center hover:bg-opacity-90 transition">

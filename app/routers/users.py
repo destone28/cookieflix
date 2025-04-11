@@ -18,6 +18,20 @@ async def update_user_me(
     current_user: User = Depends(get_current_active_user)
 ):
     """Aggiorna i dati dell'utente corrente"""
+    # Validazione: se tutti i campi dell'indirizzo sono presenti, devono essere tutti compilati
+    address_fields = ['address', 'street_number', 'city', 'zip_code', 'country']
+    address_data = {field: user_data.dict().get(field) for field in address_fields if field in user_data.dict()}
+    
+    if address_data:
+        # Se almeno un campo indirizzo è stato fornito, verifichiamo che siano presenti tutti
+        missing_fields = [field for field in address_fields if field in address_data and not address_data[field]]
+        if missing_fields:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"I seguenti campi dell'indirizzo sono obbligatori: {', '.join(missing_fields)}"
+            )
+    
+    # Aggiorna solo i campi forniti
     for field, value in user_data.dict(exclude_unset=True).items():
         setattr(current_user, field, value)
     

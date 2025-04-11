@@ -15,7 +15,13 @@ def add_missing_columns(engine: Engine):
     required_columns = {
         "users": {
             "failed_login_attempts": "INTEGER DEFAULT 0",
-            "account_locked_until": "TIMESTAMP NULL"
+            "account_locked_until": "TIMESTAMP NULL",
+            "address": "VARCHAR(255) NULL",
+            "street_number": "VARCHAR(50) NULL",
+            "city": "VARCHAR(255) NULL",
+            "zip_code": "VARCHAR(20) NULL",
+            "country": "VARCHAR(255) NULL",
+            "birthdate": "TIMESTAMP NULL"
         },
         # Puoi aggiungere altre tabelle e colonne qui
     }
