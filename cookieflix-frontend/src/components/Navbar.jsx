@@ -1,5 +1,5 @@
 // src/components/Navbar.jsx
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 // Importa i loghi
@@ -10,7 +10,27 @@ const Navbar = () => {
   // Utilizziamo useAuth() per determinare se l'utente è autenticato
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // Hook per ottenere la posizione corrente
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Funzione per verificare se un link è attivo
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+
+  // Funzione per generare le classi CSS di un link della navbar in base al suo stato attivo
+  const getLinkClasses = (path) => {
+    return isActive(path)
+      ? "border-primary text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
+  };
+
+  // Funzione per generare le classi CSS di un link del menu mobile in base al suo stato attivo
+  const getMobileLinkClasses = (path) => {
+    return isActive(path)
+      ? "block pl-3 pr-4 py-2 border-l-4 border-primary bg-primary-50 text-primary-700"
+      : "block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800";
+  };
 
   // Funzione per gestire il logout
   const handleLogout = () => {
@@ -31,38 +51,40 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              {/* Logo con dimensioni ottimizzate */}
+              {/* Logo con dimensioni aumentate */}
               <img
                 src={logoFull}
                 alt="Cookieflix"
-                width="260" 
-                height="56"
+                width="320" 
+                height="70"
                 className="hidden md:block navbar-logo"
+                style={{ maxHeight: '70px', width: 'auto' }}
               />
               <img
                 src={logoCompact}
                 alt="Cookieflix"
-                width="56" 
-                height="56"
+                width="70" 
+                height="70"
                 className="md:hidden navbar-logo"
+                style={{ maxHeight: '70px', width: 'auto' }}
               />
             </Link>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
                 to="/"
-                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                className={getLinkClasses('/')}
               >
                 Home
               </Link>
               <Link
                 to="/plans"
-                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                className={getLinkClasses('/plans')}
               >
                 Piani
               </Link>
               <Link
                 to="/about-us"
-                className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                className={getLinkClasses('/about-us')}
               >
                 Chi siamo
               </Link>
@@ -70,13 +92,13 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/dashboard"
-                    className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    className={getLinkClasses('/dashboard')}
                   >
                     Dashboard
                   </Link>
                   <Link
                     to="/catalog"
-                    className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    className={getLinkClasses('/catalog')}
                   >
                     Catalogo
                   </Link>
@@ -89,7 +111,7 @@ const Navbar = () => {
               <div className="flex items-center space-x-4">
                 <Link
                   to="/profile"
-                  className="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium"
+                  className={`px-3 py-2 text-sm font-medium ${isActive('/profile') ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Profilo
                 </Link>
@@ -104,7 +126,7 @@ const Navbar = () => {
               <div className="flex items-center space-x-4">
                 <Link
                   to="/login"
-                  className="text-gray-500 hover:text-gray-700 px-3 py-2 text-sm font-medium"
+                  className={`px-3 py-2 text-sm font-medium ${isActive('/login') ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Accedi
                 </Link>
@@ -168,21 +190,21 @@ const Navbar = () => {
         <div className="pt-2 pb-3 space-y-1">
           <Link
             to="/"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+            className={getMobileLinkClasses('/')}
             onClick={handleMobileMenuClick}
           >
             Home
           </Link>
           <Link
             to="/plans"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+            className={getMobileLinkClasses('/plans')}
             onClick={handleMobileMenuClick}
           >
             Piani
           </Link>
           <Link
             to="/about-us"
-            className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+            className={getMobileLinkClasses('/about-us')}
             onClick={handleMobileMenuClick}
           >
             Chi siamo
@@ -192,21 +214,21 @@ const Navbar = () => {
             <>
               <Link
                 to="/dashboard"
-                className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                className={getMobileLinkClasses('/dashboard')}
                 onClick={handleMobileMenuClick}
               >
                 Dashboard
               </Link>
               <Link
                 to="/catalog"
-                className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                className={getMobileLinkClasses('/catalog')}
                 onClick={handleMobileMenuClick}
               >
                 Catalogo
               </Link>
               <Link
                 to="/profile"
-                className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                className={getMobileLinkClasses('/profile')}
                 onClick={handleMobileMenuClick}
               >
                 Profilo
@@ -224,14 +246,14 @@ const Navbar = () => {
             <>
               <Link
                 to="/login"
-                className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                className={getMobileLinkClasses('/login')}
                 onClick={handleMobileMenuClick}
               >
                 Accedi
               </Link>
               <Link
                 to="/register"
-                className="block pl-3 pr-4 py-2 border-l-4 border-primary bg-primary-50 text-primary-700 hover:bg-primary-100 hover:text-primary-800"
+                className={getMobileLinkClasses('/register')}
                 onClick={handleMobileMenuClick}
               >
                 Registrati
