@@ -7,8 +7,8 @@ import { updateUserProfile, getCurrentUserProfile } from '../services/userServic
 
 const Profile = () => {
   const { user, loading, logout, setUser } = useAuth();
-  const defaultBirthdate = '1985-01-01';
   const navigate = useNavigate();
+  const defaultBirthdate = '1985-01-01';
   
   // Stato per i dati del form
   const [formData, setFormData] = useState({
@@ -87,11 +87,7 @@ const Profile = () => {
       
       // Se stiamo aggiornando l'indirizzo, invia tutti i campi dell'indirizzo
       if (field === 'address') {
-        // Verifica che tutti i campi obbligatori siano compilati
-        if (!formData.address || !formData.street_number || !formData.city || !formData.zip_code || !formData.country) {
-          throw new Error('Tutti i campi dell\'indirizzo sono obbligatori');
-        }
-        
+        // Invia tutti i campi dell'indirizzo insieme
         dataToUpdate = {
           address: formData.address,
           street_number: formData.street_number,
@@ -99,14 +95,14 @@ const Profile = () => {
           zip_code: formData.zip_code,
           country: formData.country
         };
-      } else if (field === 'birthdate') {
-        // Assicurati che la data di nascita sia nel formato corretto (YYYY-MM-DD)
+      } 
+      // Se stiamo aggiornando la data di nascita
+      else if (field === 'birthdate') {
+        // Invia solo la data di nascita, in formato ISO
         dataToUpdate = { 
-          birthdate: formData.birthdate || defaultBirthdate
+          birthdate: formData.birthdate || defaultBirthdate 
         };
-      } else {
-        // Altrimenti invia solo il campo specifico
-        dataToUpdate = { [field]: formData[field] };
+        console.log('Invio data di nascita:', dataToUpdate);
       }
       
       // Invia la richiesta di aggiornamento
@@ -159,11 +155,24 @@ const Profile = () => {
     return addressParts.length > 0 ? addressParts.join(', ') : 'Nessun indirizzo specificato';
   };
   
-  // Formatta la data
+  // Funzione per formattare la data per la visualizzazione (DD/MM/YYYY)
   const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT');
+    if (!dateString) return 'Non specificata';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Non specificata';
+      
+      // Formato italiano: giorno/mese/anno
+      return date.toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (e) {
+      console.error('Errore nella formattazione della data:', e);
+      return 'Non specificata';
+    }
   };
 
   if (loading) {
