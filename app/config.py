@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "../.env/FRONTEND_URL")
 
+    # Email settings
+    EMAIL_SERVER: str = os.getenv("EMAIL_SERVER", "smtp.gmail.com")
+    EMAIL_PORT: int = int(os.getenv("EMAIL_PORT", "465"))
+    EMAIL_SENDER: str = os.getenv("EMAIL_SENDER", "")
+    EMAIL_PASSWORD: str = os.getenv("EMAIL_PASSWORD", "")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@cookieflix.com")
+
     print(f"FRONTEND_URL: {FRONTEND_URL}")
     
     class Config:

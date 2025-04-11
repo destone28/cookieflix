@@ -13,7 +13,7 @@ const Footer = () => {
           <div className="md:col-span-1">
             <Link to="/" className="text-2xl font-bold text-primary">Cookieflix</Link>
             <p className="mt-2 text-sm">
-              Il tuo servizio di abbonamento per cookie cutters stampati in 3D.
+              Il tuo servizio di abbonamento semplice per cookie cutters unici a prezzi imbattibili!
             </p>
           </div>
           

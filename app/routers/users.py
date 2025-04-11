@@ -14,6 +14,7 @@ from app.schemas import product as product_schemas
 from app.models.user import User, user_category_preference
 from app.models.product import Category
 from app.utils.auth import get_current_active_user, get_password_hash, verify_password
+from app.utils.email import send_email
 from app.database import get_db
 from app.config import settings
 
@@ -128,37 +129,39 @@ async def change_password(
 
 def send_deletion_email(admin_email: str, user_email: str, reason: str):
     """Invia email di richiesta cancellazione account"""
-    try:
-        # Configurazione email
-        sender_email = settings.EMAIL_SENDER
-        sender_password = settings.EMAIL_PASSWORD
+    subject = f"Richiesta di cancellazione account - {user_email}"
+    
+    # Corpo del messaggio
+    body = f"""
+    Un utente ha richiesto la cancellazione del proprio account.
+    
+    Dettagli:
+    - Email: {user_email}
+    - Motivo: {reason}
+    
+    Per procedere con la cancellazione, accedi al pannello di amministrazione.
+    """
+    
+    # Versione HTML del messaggio
+    html_body = f"""
+    <html>
+    <body>
+        <h2>Richiesta di cancellazione account</h2>
+        <p>Un utente ha richiesto la cancellazione del proprio account.</p>
         
-        # Creazione messaggio
-        message = MIMEMultipart()
-        message["From"] = sender_email
-        message["To"] = admin_email
-        message["Subject"] = f"Richiesta di cancellazione account - {user_email}"
+        <h3>Dettagli:</h3>
+        <ul>
+            <li><strong>Email:</strong> {user_email}</li>
+            <li><strong>Motivo:</strong> {reason}</li>
+        </ul>
         
-        # Corpo del messaggio
-        body = f"""
-        Un utente ha richiesto la cancellazione del proprio account.
-        
-        Dettagli:
-        - Email: {user_email}
-        - Motivo: {reason}
-        
-        Per procedere con la cancellazione, accedi al pannello di amministrazione.
-        """
-        message.attach(MIMEText(body, "plain"))
-        
-        # Invio email
-        with smtplib.SMTP_SSL(settings.EMAIL_SERVER, settings.EMAIL_PORT) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, admin_email, message.as_string())
-            
-        logger.info(f"Email di richiesta cancellazione inviata per {user_email}")
-    except Exception as e:
-        logger.error(f"Errore nell'invio dell'email: {e}")
+        <p>Per procedere con la cancellazione, accedi al <a href="{settings.FRONTEND_URL}/admin">pannello di amministrazione</a>.</p>
+    </body>
+    </html>
+    """
+    
+    # Invia l'email
+    return send_email(admin_email, subject, body, html_body)
 
 @router.post("/request-deletion", response_model=dict)
 async def request_account_deletion(
@@ -172,7 +175,7 @@ async def request_account_deletion(
     logger.info(f"Richiesta di cancellazione account ricevuta da {current_user.email}: {deletion_data.reason}")
     
     # Invia una email di notifica all'amministratore (in background)
-    admin_email = "admin@cookieflix.com"  # Sostituisci con l'email appropriata
+    admin_email = settings.ADMIN_EMAIL
     background_tasks.add_task(
         send_deletion_email, 
         admin_email=admin_email,
