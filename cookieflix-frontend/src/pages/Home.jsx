@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import hero_image from '../assets/images/home_hero.webp';
 
 const Home = () => {
   // Simuliamo dati che in futuro verranno dall'API
@@ -141,7 +142,7 @@ const Home = () => {
       <section className="bg-gradient-to-r from-primary to-secondary text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center">
-            <div className="md:w-1/2 mb-8 md:mb-0">
+            <div className="md:w-2/3 mb-8 md:mb-0">
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Cookie Cutters Unici Ogni Mese
               </h1>
@@ -157,9 +158,9 @@ const Home = () => {
                 </Link>
               </div>
             </div>
-            <div className="md:w-1/2">
+            <div className="md:w-1/3 ">
               <img 
-                src="https://placehold.co/600x400?text=Cookieflix+Hero" 
+                src={hero_image} 
                 alt="Cookieflix cookie cutters" 
                 className="rounded-lg shadow-lg"
               />
@@ -244,7 +245,7 @@ const Home = () => {
                     ))}
                   </ul>
                   <Link
-                    to="/subscription"
+                    to="/register"
                     className={`block w-full text-center py-3 px-4 rounded-lg font-bold transition ${
                       plan.is_popular 
                         ? 'bg-primary text-white hover:bg-opacity-90' 
