@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { verifyCheckoutSession } from '../services/subscriptionService';
 
 const CheckoutSuccess = () => {
-  const [status, setStatus] = useState('loading'); // loading, success, error, requires_login
+  const [status, setStatus] = useState('loading'); // loading, success, error
   const [message, setMessage] = useState('');
   const [sessionId, setSessionId] = useState('');
   const { isAuthenticated } = useAuth();
@@ -18,18 +18,22 @@ const CheckoutSuccess = () => {
     // Estrae il session_id dai query params
     const queryParams = new URLSearchParams(location.search);
     const sid = queryParams.get('session_id');
+    
+    if (!sid) {
+      setStatus('error');
+      setMessage('Parametro session_id mancante. Impossibile verificare il pagamento.');
+      toast.showError('Impossibile verificare il pagamento');
+      return;
+    }
+    
     setSessionId(sid);
+    console.log("Session ID ricevuto:", sid); // Debug log
     
     const verifySession = async () => {
-      if (!sid) {
-        setStatus('error');
-        setMessage('Parametro session_id mancante. Impossibile verificare il pagamento.');
-        toast.showError('Impossibile verificare il pagamento');
-        return;
-      }
-  
       try {
+        console.log("Verifico sessione:", sid); // Debug log
         const result = await verifyCheckoutSession(sid);
+        console.log("Risultato verifica:", result); // Debug log
         
         if (result.status === 'success') {
           setStatus('success');
@@ -58,99 +62,119 @@ const CheckoutSuccess = () => {
         toast.showError('Errore nella verifica del pagamento');
       }
     };
-  
+
     verifySession();
   }, [location.search, toast, isAuthenticated]);
-  
-  // Gestisce il click sul pulsante
-  const handleButtonClick = () => {
-    if (status === 'success') {
-      navigate('/categories'); // Vai alla selezione categorie
-    } else if (status === 'requires_login') {
-      // Reindirizza al login e ricorda di tornare qui dopo
-      navigate('/login', { 
-        state: { 
-          message: 'Accedi per completare l\'attivazione dell\'abbonamento',
-          returnTo: `/checkout/success?session_id=${sessionId}`
-        } 
-      });
-    } else if (status === 'error') {
-      navigate('/plans'); // Torna alla pagina abbonamento
-    } else {
-      navigate('/dashboard'); // Vai alla dashboard
-    }
-  };
 
   return (
-    <div className="max-w-lg mx-auto mt-12 p-6 bg-white rounded-lg shadow-lg">
-      <div className="text-center">
-        {status === 'loading' && (
-          <>
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mx-auto"></div>
-            <h2 className="text-2xl font-semibold mt-6 mb-2">Verifica del pagamento in corso...</h2>
-            <p className="text-gray-600">Stiamo verificando lo stato del tuo pagamento. Attendi qualche istante.</p>
-          </>
-        )}
+    <div className="max-w-3xl mx-auto px-4 py-16">
+      {status === 'loading' && (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-primary mx-auto mb-8"></div>
+          <h2 className="text-3xl font-bold mb-4">Elaborazione in corso...</h2>
+          <p className="text-gray-600">Stiamo verificando lo stato del tuo pagamento.</p>
+        </div>
+      )}
 
-        {status === 'success' && (
-          <>
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+      {status === 'success' && (
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-primary bg-opacity-10 p-8 text-center">
+            <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-primary bg-opacity-20 text-primary mb-6">
+              <svg className="h-12 w-12" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold mt-6 mb-2">Pagamento completato con successo!</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <p className="text-gray-600 mb-6">Ora puoi selezionare le tue categorie preferite per iniziare a ricevere i tuoi cookie cutters mensili.</p>
-          </>
-        )}
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">Pagamento completato con successo!</h1>
+            <p className="text-lg text-gray-600 mb-0">{message}</p>
+          </div>
+          
+          <div className="p-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold mb-6">I prossimi passi</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-green-100 rounded-full p-2 mr-4">
+                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-800">Seleziona le tue categorie preferite</h3>
+                    <p className="text-gray-600">Scegli le categorie per i cookie cutters che riceverai ogni mese.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-blue-100 rounded-full p-2 mr-4">
+                    <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-800">Vota i design del mese</h3>
+                    <p className="text-gray-600">Partecipa alla selezione dei design che verranno prodotti.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 bg-purple-100 rounded-full p-2 mr-4">
+                    <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-800">Ricevi i tuoi cookie cutters</h3>
+                    <p className="text-gray-600">I cookie cutters selezionati verranno spediti all'inizio di ogni mese.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+              <button
+                onClick={() => navigate('/categories')}
+                className="flex-1 py-3 px-4 bg-primary text-white rounded-lg font-medium hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+              >
+                Seleziona categorie
+              </button>
+              
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex-1 py-3 px-4 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+              >
+                Vai alla dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {status === 'pending' && (
-          <>
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      {status === 'error' && (
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-red-100 p-8 text-center">
+            <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-red-200 text-red-600 mb-6">
+              <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold mt-6 mb-2">Pagamento in elaborazione</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-          </>
-        )}
-
-        {status === 'requires_login' && (
-          <>
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-              </svg>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">Si è verificato un problema</h1>
+            <p className="text-lg text-gray-600 mb-0">{message}</p>
+          </div>
+          
+          <div className="p-8">
+            <div className="mb-8">
+              <p className="text-gray-600 mb-6">Sessione ID: {sessionId || 'Non disponibile'}</p>
+              <button
+                onClick={() => navigate('/plans')}
+                className="w-full py-3 px-4 bg-primary text-white rounded-lg font-medium hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+              >
+                Torna ai piani
+              </button>
             </div>
-            <h2 className="text-2xl font-semibold mt-6 mb-2">Accesso richiesto</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </div>
-            <h2 className="text-2xl font-semibold mt-6 mb-2">Si è verificato un errore</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-          </>
-        )}
-
-        <button
-          onClick={handleButtonClick}
-          className="w-full py-3 rounded-md text-white font-medium transition-colors bg-primary hover:bg-opacity-90"
-        >
-          {status === 'success' ? 'Seleziona le tue categorie' : 
-           status === 'requires_login' ? 'Accedi per continuare' :
-           status === 'error' ? 'Torna agli abbonamenti' : 
-           'Vai alla dashboard'}
-        </button>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

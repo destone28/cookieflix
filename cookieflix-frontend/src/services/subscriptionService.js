@@ -63,10 +63,16 @@ export const updateSubscriptionCategories = async (categoryIds) => {
 // Verifica una sessione di checkout
 export const verifyCheckoutSession = async (sessionId) => {
   try {
+    console.log("Chiamata API per verificare:", sessionId); // Debug log
     const response = await api.get(`/subscriptions/verify-session/${sessionId}`);
+    console.log("Risposta API:", response.data); // Debug log
     return response.data;
   } catch (error) {
-    console.error('Error verifying checkout session:', error.response?.data || error.message);
-    throw new Error('Impossibile verificare la sessione di checkout');
+    console.error('Error verifying checkout session:', error);
+    // Restituisci un oggetto di errore formattato
+    return {
+      status: 'error',
+      message: error.response?.data?.detail || 'Errore durante la verifica della sessione'
+    };
   }
 };
