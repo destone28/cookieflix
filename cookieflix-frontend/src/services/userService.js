@@ -21,3 +21,14 @@ export const getReferralCode = async () => {
     throw new Error('Impossibile recuperare il codice referral');
   }
 };
+
+// Ottieni il profilo dell'utente corrente
+export const getCurrentUserProfile = async () => {
+  try {
+    const response = await api.get('/users/me');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user profile:', error.response?.data || error.message);
+    throw new Error('Impossibile recuperare il profilo utente');
+  }
+};

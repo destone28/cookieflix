@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getActiveSubscription } from '../services/subscriptionService';
-import { updateUserProfile } from '../services/userService';
+import { updateUserProfile, getCurrentUserProfile } from '../services/userService';
 
 const Profile = () => {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, setUser } = useAuth();
+  const defaultBirthdate = '1985-01-01';
   const navigate = useNavigate();
   
   // Stato per i dati del form
@@ -55,7 +56,7 @@ const Profile = () => {
         city: user.city || '',
         zip_code: user.zip_code || '',
         country: user.country || '',
-        birthdate: user.birthdate || '',
+        birthdate: user.birthdate || defaultBirthdate,
       });
     }
   }, [user]);
@@ -63,6 +64,17 @@ const Profile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Funzione per recuperare i dati aggiornati dell'utente
+  const refreshUserData = async () => {
+    try {
+      const updatedUserData = await getCurrentUserProfile();
+      // Aggiorna il contesto utente con i nuovi dati
+      setUser(updatedUserData);
+    } catch (error) {
+      console.error('Errore nel recupero dei dati aggiornati:', error);
+    }
   };
 
   const handleSubmit = async (field) => {
@@ -87,6 +99,11 @@ const Profile = () => {
           zip_code: formData.zip_code,
           country: formData.country
         };
+      } else if (field === 'birthdate') {
+        // Assicurati che la data di nascita sia nel formato corretto (YYYY-MM-DD)
+        dataToUpdate = { 
+          birthdate: formData.birthdate || defaultBirthdate
+        };
       } else {
         // Altrimenti invia solo il campo specifico
         dataToUpdate = { [field]: formData[field] };
@@ -94,6 +111,9 @@ const Profile = () => {
       
       // Invia la richiesta di aggiornamento
       await updateUserProfile(dataToUpdate);
+
+      // Recupera i dati aggiornati dell'utente
+      await refreshUserData();
       
       // Disabilita la modalità di editing
       if (field === 'address') setEditingAddress(false);

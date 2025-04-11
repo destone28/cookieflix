@@ -11,6 +11,11 @@ from app.config import settings
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}/users", tags=["Users"])
 
+@router.get("/me", response_model=schemas.User)
+async def get_current_user_me(current_user: User = Depends(get_current_active_user)):
+    """Ottiene i dati dell'utente corrente"""
+    return current_user
+
 @router.put("/me", response_model=schemas.User)
 async def update_user_me(
     user_data: schemas.UserUpdate,

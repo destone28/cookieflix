@@ -37,8 +37,8 @@ class User(Base):
     city = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
     country = Column(String, nullable=True)
-    birthdate = Column(DateTime, nullable=True)
-    
+    birthdate = Column(DateTime, default=datetime(1985, 1, 1), nullable=True)
+
     # Relazioni
     subscriptions = relationship("Subscription", back_populates="user")
     votes = relationship("Vote", back_populates="user")

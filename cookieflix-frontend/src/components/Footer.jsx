@@ -82,14 +82,14 @@ const Footer = () => {
             <ul className="space-y-2">
               <li className="text-sm">
                 <span className="block">Email:</span>
-                <a href="mailto:info@cookieflix.com" className="hover:text-primary">
-                  info@cookieflix.com
+                <a href="mailto:emilio.destratis@gmail.com" className="hover:text-primary">
+                  INSERISCI EMAIL
                 </a>
               </li>
               <li className="text-sm">
                 <span className="block">Telefono:</span>
-                <a href="tel:+390123456789" className="hover:text-primary">
-                  +39 0123 456789
+                <a href="tel:+393515828105" className="hover:text-primary">
+                  +39 351 582 8105
                 </a>
               </li>
             </ul>
@@ -98,7 +98,7 @@ const Footer = () => {
         
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-gray-700 text-sm text-center">
-          <p>&copy; {new Date().getFullYear()} Cookieflix. Tutti i diritti riservati.</p>
+          <p>&copy; {new Date().getFullYear()} Cookieflix è un progetto di <a href="https://www.3dsprinted.com">3DSprinted di Destratis Emilio</a>. P.IVA 03262770732</p>
         </div>
       </div>
     </footer>
