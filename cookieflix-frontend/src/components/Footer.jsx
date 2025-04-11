@@ -1,6 +1,10 @@
+// src/components/Footer.jsx
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Footer = () => {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <footer className="bg-dark-bg text-light-text py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,16 +31,26 @@ const Footer = () => {
                   Abbonamenti
                 </Link>
               </li>
-              <li>
-                <Link to="/login" className="text-sm hover:text-primary">
-                  Accedi
-                </Link>
-              </li>
-              <li>
-                <Link to="/register" className="text-sm hover:text-primary">
-                  Registrati
-                </Link>
-              </li>
+              {isAuthenticated ? (
+                <li>
+                  <Link to="/profile" className="text-sm hover:text-primary">
+                    Profilo
+                  </Link>
+                </li>
+              ) : (
+                <>
+                  <li>
+                    <Link to="/login" className="text-sm hover:text-primary">
+                      Accedi
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/register" className="text-sm hover:text-primary">
+                      Registrati
+                    </Link>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
           

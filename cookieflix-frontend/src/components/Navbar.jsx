@@ -8,7 +8,7 @@ import logoCompact from '../assets/images/logo-compact.webp';
 
 const Navbar = () => {
   // Utilizziamo useAuth() per determinare se l'utente è autenticato
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation(); // Hook per ottenere la posizione corrente
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,7 +28,7 @@ const Navbar = () => {
   // Funzione per generare le classi CSS di un link del menu mobile in base al suo stato attivo
   const getMobileLinkClasses = (path) => {
     return isActive(path)
-      ? "block pl-3 pr-4 py-2 border-l-4 border-primary bg-primary-50 text-primary-700"
+      ? "block pl-3 pr-4 py-2 border-l-4 border-primary bg-indigo-50 text-primary font-medium"
       : "block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800";
   };
 
@@ -51,22 +51,16 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              {/* Logo con dimensioni aumentate */}
+              {/* Logo con dimensioni ottimizzate */}
               <img
                 src={logoFull}
                 alt="Cookieflix"
-                width="320" 
-                height="70"
                 className="hidden md:block navbar-logo"
-                style={{ maxHeight: '70px', width: 'auto' }}
               />
               <img
                 src={logoCompact}
                 alt="Cookieflix"
-                width="70" 
-                height="70"
                 className="md:hidden navbar-logo"
-                style={{ maxHeight: '70px', width: 'auto' }}
               />
             </Link>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -108,25 +102,19 @@ const Navbar = () => {
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center">
                 <Link
                   to="/profile"
-                  className={`px-3 py-2 text-sm font-medium ${isActive('/profile') ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                  className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-opacity-90 transition-all"
                 >
                   Profilo
                 </Link>
-                <button
-                  className="bg-primary text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-opacity-90 transition-all"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
               </div>
             ) : (
               <div className="flex items-center space-x-4">
                 <Link
                   to="/login"
-                  className={`px-3 py-2 text-sm font-medium ${isActive('/login') ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-3 py-2 text-sm font-medium ${isActive('/login') ? 'text-primary border-b-2 border-primary' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Accedi
                 </Link>
@@ -233,12 +221,6 @@ const Navbar = () => {
               >
                 Profilo
               </Link>
-              <button
-                className="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
             </>
           )}
           
