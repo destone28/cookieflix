@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import FacebookLoginButton from '../components/FacebookLoginButton';
 
 
 const Login = () => {
@@ -71,6 +72,17 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFacebookLoginSuccess = (accessToken) => {
+    console.log('Login Facebook riuscito con token:', accessToken);
+    // Per ora mostriamo solo un messaggio, implementeremo l'autenticazione dopo
+    toast.showSuccess('Login Facebook riuscito!');
+  };
+  
+  const handleFacebookLoginError = (error) => {
+    console.error('Errore login Facebook:', error);
+    toast.showError('Errore durante il login con Facebook: ' + error);
   };
 
   return (
@@ -152,6 +164,22 @@ const Login = () => {
                 Password dimenticata?
               </a>
             </div>
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">oppure</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <FacebookLoginButton
+              onLoginSuccess={handleFacebookLoginSuccess}
+              onLoginError={handleFacebookLoginError}
+            />
           </div>
 
           <div>
