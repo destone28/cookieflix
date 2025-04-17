@@ -12,11 +12,9 @@ import DesignEdit from './modules/designs/DesignEdit';
 import Login from './modules/auth/Login';
 import Users from './modules/users/Users';
 import UserDetail from './modules/users/UserDetail';
+import Settings from './pages/Settings';
 import Subscriptions from './modules/subscriptions/Subscriptions';
 import SubscriptionDetail from './modules/subscriptions/SubscriptionDetail';
-
-// Placeholder components per gli altri moduli che non abbiamo ancora implementato
-const Settings = () => <div>Impostazioni</div>;
 
 // HOC per proteggere le route
 const ProtectedRoute = ({ children }) => {
