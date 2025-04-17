@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 import Dashboard from './modules/dashboard/Dashboard';
 import Login from './modules/auth/Login';
 import Users from './modules/users/Users';
+import UserDetail from './modules/users/UserDetail';
 
 // Placeholder components per gli altri moduli
 const Subscriptions = () => <div>Gestione Abbonamenti</div>;
@@ -41,6 +42,7 @@ function App() {
           }>
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
+            <Route path="users/:id" element={<UserDetail />} />
             <Route path="subscriptions" element={<Subscriptions />} />
             <Route path="categories" element={<Categories />} />
             <Route path="designs" element={<Designs />} />

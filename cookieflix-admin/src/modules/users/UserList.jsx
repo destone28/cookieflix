@@ -1,5 +1,5 @@
 // src/modules/users/UserList.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getUsers, toggleUserStatus } from '../../services/userService';
 import { Link } from 'react-router-dom';
 import UserFilters from './UserFilters';
@@ -15,11 +15,7 @@ const UserList = () => {
   const [filters, setFilters] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [currentPage, itemsPerPage, filters]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       // In un'implementazione reale, utilizzeremmo le API
@@ -64,27 +60,26 @@ const UserList = () => {
       setTotalPages(Math.ceil(filteredUsers.length / itemsPerPage));
       setTotalUsers(filteredUsers.length);
       setLoading(false);
-      
-      // Nella versione reale, utilizzeremmo:
-      // const response = await getUsers(currentPage, itemsPerPage, filters);
-      // setUsers(response.data);
-      // setTotalPages(response.total_pages);
-      // setTotalUsers(response.total);
     } catch (err) {
       setError('Errore durante il caricamento degli utenti');
       console.error(err);
       setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, filters]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
   };
 
-  const handleFiltersChange = (newFilters) => {
+  // Usa useCallback per memorizzare questa funzione
+  const handleFiltersChange = useCallback((newFilters) => {
     setFilters(newFilters);
     setCurrentPage(1); // Reset alla prima pagina quando cambiano i filtri
-  };
+  }, []);
 
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value);

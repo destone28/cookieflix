@@ -1,11 +1,12 @@
 // src/modules/users/UserFilters.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 const UserFilters = ({ onFilterChange }) => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const isInitialMount = useRef(true);
 
   // Debounce della ricerca
   useEffect(() => {
@@ -20,6 +21,12 @@ const UserFilters = ({ onFilterChange }) => {
 
   // Applica i filtri quando cambiano
   useEffect(() => {
+    // Evita la prima chiamata all'mount del componente
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const filters = {};
     
     if (debouncedSearch) {
