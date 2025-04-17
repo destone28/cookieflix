@@ -6,6 +6,9 @@ import Categories from './modules/categories/Categories';
 import CategoryCreate from './modules/categories/CategoryCreate';
 import CategoryEdit from './modules/categories/CategoryEdit';
 import Dashboard from './modules/dashboard/Dashboard';
+import Designs from './modules/designs/Designs';
+import DesignCreate from './modules/designs/DesignCreate';
+import DesignEdit from './modules/designs/DesignEdit';
 import Login from './modules/auth/Login';
 import Users from './modules/users/Users';
 import UserDetail from './modules/users/UserDetail';
@@ -13,7 +16,6 @@ import Subscriptions from './modules/subscriptions/Subscriptions';
 import SubscriptionDetail from './modules/subscriptions/SubscriptionDetail';
 
 // Placeholder components per gli altri moduli che non abbiamo ancora implementato
-const Designs = () => <div>Gestione Design</div>;
 const Settings = () => <div>Impostazioni</div>;
 
 // HOC per proteggere le route
@@ -52,6 +54,8 @@ function App() {
             <Route path="categories/create" element={<CategoryCreate />} />
             <Route path="categories/:id/edit" element={<CategoryEdit />} />
             <Route path="designs" element={<Designs />} />
+            <Route path="designs/create" element={<DesignCreate />} />
+            <Route path="designs/:id/edit" element={<DesignEdit />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
