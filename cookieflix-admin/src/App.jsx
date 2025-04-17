@@ -2,6 +2,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
+import Categories from './modules/categories/Categories';
+import CategoryCreate from './modules/categories/CategoryCreate';
+import CategoryEdit from './modules/categories/CategoryEdit';
 import Dashboard from './modules/dashboard/Dashboard';
 import Login from './modules/auth/Login';
 import Users from './modules/users/Users';
@@ -10,7 +13,6 @@ import Subscriptions from './modules/subscriptions/Subscriptions';
 import SubscriptionDetail from './modules/subscriptions/SubscriptionDetail';
 
 // Placeholder components per gli altri moduli che non abbiamo ancora implementato
-const Categories = () => <div>Gestione Categorie</div>;
 const Designs = () => <div>Gestione Design</div>;
 const Settings = () => <div>Impostazioni</div>;
 
@@ -47,6 +49,8 @@ function App() {
             <Route path="subscriptions" element={<Subscriptions />} />
             <Route path="subscriptions/:id" element={<SubscriptionDetail />} />
             <Route path="categories" element={<Categories />} />
+            <Route path="categories/create" element={<CategoryCreate />} />
+            <Route path="categories/:id/edit" element={<CategoryEdit />} />
             <Route path="designs" element={<Designs />} />
             <Route path="settings" element={<Settings />} />
           </Route>
