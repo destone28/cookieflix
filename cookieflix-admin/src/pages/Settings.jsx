@@ -4,7 +4,8 @@ import {
   EnvelopeIcon, 
   PuzzlePieceIcon, 
   ArchiveBoxIcon, 
-  DocumentTextIcon 
+  DocumentTextIcon,
+  ServerIcon
 } from '@heroicons/react/24/outline';
 
 // Questo componente verrà creato in seguito
@@ -17,6 +18,8 @@ import IntegrationSettings from '../components/settings/IntegrationSettings';
 import BackupSettings from '../components/settings/BackupSettings';
 // Questo componente verrà creato in seguito
 import SystemLogs from '../components/settings/SystemLogs';
+// Questo componente verrà creato in seguito
+import ApiDiagnostics from '../components/settings/ApiDiagnostics';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -27,6 +30,7 @@ const Settings = () => {
     { id: 'integrations', name: 'Integrazioni', icon: PuzzlePieceIcon },
     { id: 'backup', name: 'Backup e Ripristino', icon: ArchiveBoxIcon },
     { id: 'logs', name: 'Log di Sistema', icon: DocumentTextIcon },
+    { id: 'diagnostics', name: 'Diagnostica', icon: ServerIcon }
   ];
 
   const renderActiveTabContent = () => {
@@ -41,6 +45,8 @@ const Settings = () => {
         return <BackupSettings />;
       case 'logs':
         return <SystemLogs />;
+      case 'diagnostics':
+        return <ApiDiagnostics />;
       default:
         return <GeneralSettings />;
     }

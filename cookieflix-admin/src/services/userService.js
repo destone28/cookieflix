@@ -1,5 +1,39 @@
 // src/services/userService.js
-import api, { fetchData, submitData } from './apiConfig';
+import { fetchData, submitData } from './apiConfig';
+
+// Dati mock per sviluppo e test
+const mockUsers = Array(25).fill(null).map((_, index) => ({
+  id: index + 1,
+  email: `user${index + 1}@example.com`,
+  full_name: `Utente ${index + 1}`,
+  is_active: Math.random() > 0.2, // 80% degli utenti attivi
+  is_admin: index < 3, // I primi 3 sono admin
+  created_at: new Date(Date.now() - (Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString(), // Data casuale negli ultimi 30 giorni
+  last_login: Math.random() > 0.3 ? new Date(Date.now() - (Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString() : null,
+  subscription: Math.random() > 0.4 ? { 
+    plan: ['starter', 'creator', 'master', 'collection'][Math.floor(Math.random() * 4)],
+    status: ['active', 'expired', 'cancelled'][Math.floor(Math.random() * 3)],
+    next_billing: new Date(Date.now() + (Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString()
+  } : null
+}));
+
+const mockUserActivities = userId => Array(15).fill(null).map((_, index) => ({
+  id: index + 1,
+  user_id: userId,
+  action: ['login', 'logout', 'profile_update', 'subscription_change', 'vote'][Math.floor(Math.random() * 5)],
+  details: `Dettaglio attività ${index + 1}`,
+  ip_address: `192.168.1.${Math.floor(Math.random() * 255)}`,
+  created_at: new Date(Date.now() - (Math.random() * 30 * 24 * 60 * 60 * 1000)).toISOString()
+}));
+
+const mockUserStats = {
+  total_users: mockUsers.length,
+  active_users: mockUsers.filter(u => u.is_active).length,
+  inactive_users: mockUsers.filter(u => !u.is_active).length,
+  new_users_today: Math.floor(Math.random() * 10),
+  new_users_week: Math.floor(Math.random() * 50),
+  new_users_month: Math.floor(Math.random() * 200)
+};
 
 /**
  * Ottiene la lista degli utenti con paginazione e filtri
@@ -17,22 +51,29 @@ export const getUsers = async (page = 1, perPage = 10, filters = {}) => {
       ...filters 
     };
     
-    return await fetchData('/admin/users', { params });
+    // Filtra i dati mock in base ai parametri
+    const mockFilteredUsers = mockUsers.filter(user => {
+      if (filters.email && !user.email.toLowerCase().includes(filters.email.toLowerCase())) return false;
+      if (filters.name && !user.full_name.toLowerCase().includes(filters.name.toLowerCase())) return false;
+      if (filters.status === 'active' && !user.is_active) return false;
+      if (filters.status === 'inactive' && user.is_active) return false;
+      return true;
+    });
+    
+    // Crea dati paginati mock
+    const mockData = {
+      users: mockFilteredUsers.slice((page - 1) * perPage, page * perPage),
+      total: mockFilteredUsers.length,
+      page,
+      total_pages: Math.ceil(mockFilteredUsers.length / perPage)
+    };
+    
+    return await fetchData('/admin/users', params, {
+      useMock: true,
+      mockData
+    });
   } catch (error) {
     console.error('Error fetching users:', error);
-    
-    // In caso di errore 404 o 500, possiamo tornare dati di default per lo sviluppo
-    if (process.env.NODE_ENV !== 'production' && 
-        (error.response?.status === 404 || error.response?.status >= 500)) {
-      console.warn('Using fallback mock data for users');
-      return {
-        users: [],
-        total: 0,
-        page: 1,
-        total_pages: 1
-      };
-    }
-    
     throw error;
   }
 };
@@ -44,7 +85,15 @@ export const getUsers = async (page = 1, perPage = 10, filters = {}) => {
  */
 export const getUserById = async (userId) => {
   try {
-    return await fetchData(`/admin/users/${userId}`);
+    const mockUser = mockUsers.find(user => user.id === parseInt(userId));
+    
+    return await fetchData(`/admin/users/${userId}`, {}, {
+      useMock: true,
+      mockData: mockUser || { 
+        error: "User not found", 
+        status: 404 
+      }
+    });
   } catch (error) {
     console.error(`Error fetching user ${userId}:`, error);
     throw error;
@@ -59,7 +108,17 @@ export const getUserById = async (userId) => {
  */
 export const updateUser = async (userId, userData) => {
   try {
-    return await submitData(`/admin/users/${userId}`, userData, 'put');
+    // Trova l'utente nei dati mock e aggiornalo
+    const mockUser = mockUsers.find(user => user.id === parseInt(userId));
+    const updatedMockUser = mockUser ? { ...mockUser, ...userData } : null;
+    
+    return await submitData('put', `/admin/users/${userId}`, userData, {
+      useMock: true,
+      mockData: updatedMockUser || { 
+        error: "User not found", 
+        status: 404 
+      }
+    });
   } catch (error) {
     console.error(`Error updating user ${userId}:`, error);
     throw error;
@@ -74,7 +133,20 @@ export const updateUser = async (userId, userData) => {
  */
 export const toggleUserStatus = async (userId, isActive) => {
   try {
-    return await submitData(`/admin/users/${userId}/status`, { is_active: isActive }, 'put');
+    // Trova l'utente nei dati mock e aggiorna lo stato
+    const mockUser = mockUsers.find(user => user.id === parseInt(userId));
+    const updatedMockUser = mockUser ? { ...mockUser, is_active: isActive } : null;
+    
+    return await submitData('put', `/admin/users/${userId}/status`, { is_active: isActive }, {
+      useMock: true,
+      mockData: updatedMockUser ? { 
+        success: true, 
+        user: updatedMockUser 
+      } : { 
+        error: "User not found", 
+        status: 404 
+      }
+    });
   } catch (error) {
     console.error(`Error updating user ${userId} status:`, error);
     throw error;
@@ -91,21 +163,22 @@ export const toggleUserStatus = async (userId, isActive) => {
 export const getUserActivity = async (userId, page = 1, perPage = 10) => {
   try {
     const params = { page, per_page: perPage };
-    return await fetchData(`/admin/users/${userId}/activity`, { params });
+    
+    // Genera attività mock per l'utente
+    const mockActivities = mockUserActivities(userId);
+    const mockData = {
+      activities: mockActivities.slice((page - 1) * perPage, page * perPage),
+      total: mockActivities.length,
+      page,
+      total_pages: Math.ceil(mockActivities.length / perPage)
+    };
+    
+    return await fetchData(`/admin/users/${userId}/activity`, params, {
+      useMock: true,
+      mockData
+    });
   } catch (error) {
     console.error(`Error fetching user ${userId} activity:`, error);
-    
-    // In caso di errore 404 (endpoint non ancora implementato), restituire dati vuoti
-    if (process.env.NODE_ENV !== 'production' && error.response?.status === 404) {
-      console.warn('User activity endpoint not available, returning empty data');
-      return {
-        activities: [],
-        total: 0,
-        page: 1,
-        total_pages: 1
-      };
-    }
-    
     throw error;
   }
 };
@@ -117,8 +190,13 @@ export const getUserActivity = async (userId, page = 1, perPage = 10) => {
  */
 export const deleteUser = async (userId) => {
   try {
-    const response = await api.delete(`/admin/users/${userId}`);
-    return response.data;
+    return await submitData('delete', `/admin/users/${userId}`, {}, {
+      useMock: true,
+      mockData: { 
+        success: true, 
+        message: `User ${userId} successfully deleted` 
+      }
+    });
   } catch (error) {
     console.error(`Error deleting user ${userId}:`, error);
     throw error;
@@ -133,7 +211,13 @@ export const deleteUser = async (userId) => {
  */
 export const resetUserPassword = async (userId, newPassword) => {
   try {
-    return await submitData(`/admin/users/${userId}/reset-password`, { password: newPassword }, 'post');
+    return await submitData('post', `/admin/users/${userId}/reset-password`, { password: newPassword }, {
+      useMock: true,
+      mockData: { 
+        success: true, 
+        message: "Password reset successfully" 
+      }
+    });
   } catch (error) {
     console.error(`Error resetting password for user ${userId}:`, error);
     throw error;
@@ -146,23 +230,12 @@ export const resetUserPassword = async (userId, newPassword) => {
  */
 export const getUsersStats = async () => {
   try {
-    return await fetchData('/admin/users/stats');
+    return await fetchData('/admin/users/stats', {}, {
+      useMock: true,
+      mockData: mockUserStats
+    });
   } catch (error) {
     console.error('Error fetching user statistics:', error);
-    
-    // In caso di errore 404 (endpoint non ancora implementato), restituire dati di default
-    if (process.env.NODE_ENV !== 'production' && error.response?.status === 404) {
-      console.warn('User stats endpoint not available, returning mock data');
-      return {
-        total_users: 0,
-        active_users: 0,
-        inactive_users: 0,
-        new_users_today: 0,
-        new_users_week: 0,
-        new_users_month: 0
-      };
-    }
-    
     throw error;
   }
 };

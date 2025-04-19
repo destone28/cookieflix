@@ -1,6 +1,8 @@
+// src/modules/settings/IntegrationSettings.jsx
 import React, { useState, useEffect } from 'react';
 import { getIntegrationSettings, updateIntegrationSettings } from '../../services/settingsService';
 import { CheckIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import ConnectionTest from '../../components/common/ConnectionTest';
 
 const IntegrationSettings = () => {
   const [settings, setSettings] = useState({
@@ -29,6 +31,7 @@ const IntegrationSettings = () => {
     }
   });
   
+  // Stati esistenti
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -40,7 +43,15 @@ const IntegrationSettings = () => {
     aws: false
   });
 
-  // AWS regions
+  // Nuovi stati per il test API
+  const [apiTests, setApiTests] = useState({
+    health: { status: null, timestamp: null, response: null },
+    users: { status: null, timestamp: null, response: null },
+    subscriptions: { status: null, timestamp: null, response: null }
+  });
+  const [showTests, setShowTests] = useState(false);
+
+  // AWS regions (già esistente)
   const awsRegions = [
     { code: 'us-east-1', name: 'US East (N. Virginia)' },
     { code: 'us-east-2', name: 'US East (Ohio)' },
@@ -118,6 +129,25 @@ const IntegrationSettings = () => {
     }
   };
 
+  // Nuovo metodo per gestire i risultati dei test di connessione
+  const handleApiTestResult = (endpoint, status, response) => {
+    const testKey = endpoint.includes('health') 
+      ? 'health' 
+      : endpoint.includes('users') 
+        ? 'users' 
+        : 'subscriptions';
+    
+    setApiTests(prev => ({
+      ...prev,
+      [testKey]: {
+        status,
+        timestamp: new Date().toISOString(),
+        response
+      }
+    }));
+  };
+
+  // Componente esistente per il caricamento
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -143,6 +173,67 @@ const IntegrationSettings = () => {
           Impostazioni integrazioni salvate con successo
         </div>
       )}
+      
+      {/* Nuova sezione: Test API */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Test Connettività API</h3>
+          <button
+            type="button"
+            onClick={() => setShowTests(!showTests)}
+            className="px-3 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+          >
+            {showTests ? 'Nascondi test' : 'Mostra test'}
+          </button>
+        </div>
+        
+        {showTests && (
+          <div className="mb-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <ConnectionTest 
+                  endpoint="/health" 
+                  onStatusChange={(status, response) => handleApiTestResult('/health', status, response)}
+                />
+              </div>
+              
+              <div>
+                <ConnectionTest 
+                  endpoint="/admin/users/stats" 
+                  autoTest={false}
+                  onStatusChange={(status, response) => handleApiTestResult('/admin/users/stats', status, response)} 
+                />
+              </div>
+              
+              <div>
+                <ConnectionTest 
+                  endpoint="/admin/subscriptions/stats" 
+                  autoTest={false}
+                  onStatusChange={(status, response) => handleApiTestResult('/admin/subscriptions/stats', status, response)} 
+                />
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-md">
+                <h3 className="text-lg font-medium mb-3">Riepilogo Test</h3>
+                <div className="space-y-2">
+                  {Object.entries(apiTests).map(([key, test]) => (
+                    <div key={key} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="font-medium">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                      {test.status ? (
+                        <span className={`text-sm px-2 py-1 rounded ${test.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {test.status === 'success' ? 'OK' : 'Errore'}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500">Non testato</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       
       <form onSubmit={handleSubmit}>
         <div className="space-y-8">
