@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.config import settings
-from app.models.user import User, Activity
+from app.models.user import User
 from app.models.subscription import Subscription, SubscriptionPlan
 from app.models.product import Category, Design, Vote
 from app.utils.auth import get_current_admin_user
