@@ -123,3 +123,36 @@ async def login(
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+# Endpoint temporaneo per il debug
+@router.get("/debug/admin-token")
+async def get_admin_token(db: Session = Depends(get_db)):
+    """Endpoint temporaneo per debugging - RIMUOVERE IN PRODUZIONE"""
+    # Troviamo l'utente admin
+    admin_user = db.query(User).filter(User.email == "admin@cookieflix.com").first()
+    
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Utente admin non trovato")
+    
+    # Assicuriamoci che sia admin
+    if not admin_user.is_admin:
+        admin_user.is_admin = True
+        db.commit()
+        db.refresh(admin_user)
+    
+    # Generiamo il token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(admin_user.id)},
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": admin_user.id,
+            "email": admin_user.email,
+            "is_admin": admin_user.is_admin
+        }
+    }

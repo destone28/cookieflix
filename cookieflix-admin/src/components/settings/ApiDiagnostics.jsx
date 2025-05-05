@@ -1,126 +1,260 @@
 // src/components/settings/ApiDiagnostics.jsx
-import { useState } from 'react';
-import ConnectionTest from '../common/ConnectionTest';
+import { useState, useEffect } from 'react';
+import api from '../../services/apiConfig';
+import TokenManager from './TokenManager';
 
-const ApiDiagnostics = () => {
-  const [apiStatus, setApiStatus] = useState({
-    health: { status: null, timestamp: null, response: null },
-    users: { status: null, timestamp: null, response: null },
-    subscriptions: { status: null, timestamp: null, response: null },
-    categories: { status: null, timestamp: null, response: null }
-  });
-  
-  const [showTests, setShowTests] = useState(true);
-  
-  // Gestisce il cambio di stato della connessione
-  const handleStatusChange = (endpoint, status, response) => {
-    const endpointKey = endpoint.includes('health') 
-      ? 'health' 
-      : endpoint.includes('users') 
-        ? 'users' 
-        : endpoint.includes('subscriptions')
-          ? 'subscriptions'
-          : 'categories';
+// Componente per un singolo test API
+const ApiTestCard = ({ title, endpoint, onRetest }) => {
+  const [testResult, setTestResult] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+
+  const runTest = async () => {
+    setIsTesting(true);
+    setAttempts(prev => prev + 1);
     
-    setApiStatus(prev => ({
-      ...prev,
-      [endpointKey]: {
-        status,
-        timestamp: new Date().toISOString(),
-        response
-      }
-    }));
+    try {
+      const startTime = performance.now();
+      const response = await api.get(endpoint);
+      const endTime = performance.now();
+      
+      setTestResult({
+        success: true,
+        data: response.data,
+        responseTime: Math.round(endTime - startTime),
+        statusCode: response.status
+      });
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: error.response?.data?.detail || error.message,
+        statusCode: error.response?.status || 500
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
-  
+
+  useEffect(() => {
+    runTest();
+  }, [endpoint, onRetest]);
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-white rounded-lg shadow p-5 mb-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-gray-900">Diagnostica API</h3>
-        <div className="flex items-center">
+        <h3 className="text-lg font-medium">Test Connessione API</h3>
+        <button 
+          onClick={runTest}
+          disabled={isTesting}
+          className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
+        >
+          {isTesting ? 'Testing...' : 'Riprova'}
+        </button>
+      </div>
+
+      {testResult ? (
+        testResult.success ? (
+          <>
+            <div className="flex items-center text-green-500 mb-2">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Connessione riuscita</span>
+            </div>
+            <div className="text-sm text-gray-600 mb-2">
+              <p>Tempo di risposta: {testResult.responseTime}ms</p>
+              <p>Tentativi: {attempts}</p>
+            </div>
+            <div className="mt-2">
+              <p className="font-medium mb-1">Endpoint: {endpoint}</p>
+              <div className="bg-gray-100 p-3 rounded overflow-auto max-h-40">
+                <pre className="text-xs">{JSON.stringify(testResult.data, null, 2)}</pre>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center text-red-500 mb-2">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>Errore di connessione</span>
+            </div>
+            <div className="text-sm text-gray-600 mb-2">
+              <p>Tentativi: {attempts}</p>
+              <p>Stato: {testResult.statusCode || 'Sconosciuto'}</p>
+            </div>
+            <div className="mt-2">
+              <p className="font-medium mb-1">Endpoint: {endpoint}</p>
+              <div className="bg-red-50 p-3 rounded text-red-600">
+                <p>{testResult.error}</p>
+              </div>
+            </div>
+          </>
+        )
+      ) : (
+        <div className="flex items-center justify-center h-20">
+          <svg className="animate-spin h-6 w-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="ml-2 text-gray-500">Verifica connessione...</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente per indicatore di stato più compatto
+const ApiStatusIndicator = ({ endpoint, retestTrigger }) => {
+  const [status, setStatus] = useState('loading');
+  const [lastChecked, setLastChecked] = useState(null);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      setStatus('loading');
+      try {
+        const result = await api.get(endpoint);
+        setStatus('online');
+        setLastChecked(new Date());
+      } catch (error) {
+        setStatus('error');
+        setLastChecked(new Date());
+      }
+    };
+
+    checkStatus();
+  }, [endpoint, retestTrigger]);
+
+  const statusColors = {
+    loading: 'text-gray-500',
+    online: 'text-green-500',
+    error: 'text-red-500'
+  };
+
+  const statusLabels = {
+    loading: 'Verifica...',
+    online: 'Online',
+    error: 'Errore'
+  };
+
+  return (
+    <div className="flex items-center">
+      <div className={`w-3 h-3 rounded-full mr-2 ${
+        status === 'online' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+      }`}></div>
+      <div>
+        <p className={`text-sm font-medium ${statusColors[status]}`}>
+          {statusLabels[status]}
+        </p>
+        {lastChecked && (
+          <p className="text-xs text-gray-500">
+            {lastChecked.toLocaleTimeString()}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Componente principale per la diagnostica
+const ApiDiagnostics = () => {
+  const [retestTrigger, setRetestTrigger] = useState(0);
+  const [showTests, setShowTests] = useState(true);
+  const [hasAdminToken, setHasAdminToken] = useState(!!localStorage.getItem('admin_token'));
+
+  useEffect(() => {
+    // Verifica se il token è presente nel localStorage
+    const checkToken = () => {
+      setHasAdminToken(!!localStorage.getItem('admin_token'));
+    };
+
+    // Verifica iniziale
+    checkToken();
+
+    // Aggiungi un listener per i cambiamenti nel localStorage
+    window.addEventListener('storage', checkToken);
+
+    return () => {
+      window.removeEventListener('storage', checkToken);
+    };
+  }, []);
+
+  // CORREZIONE: Aggiunto il prefisso /api a tutti gli endpoint
+  const endpoints = [
+    { title: 'API Base', endpoint: '/' },
+    { title: 'Health', endpoint: '/health' },
+    { title: 'Admin Health', endpoint: '/admin/health', admin: true },
+    { title: 'Admin Users Stats', endpoint: '/admin/users/stats', admin: true },
+    { title: 'Admin Subscriptions Stats', endpoint: '/admin/subscriptions/stats', admin: true },
+    { title: 'Admin Categories', endpoint: '/admin/categories', admin: true }
+  ];
+
+  // Filtra gli endpoint in base al token admin
+  const filteredEndpoints = endpoints.filter(endpoint => !endpoint.admin || hasAdminToken);
+
+  const handleRetestAll = () => {
+    setRetestTrigger(prev => prev + 1);
+  };
+
+  return (
+    <div>
+      {/* Token Manager */}
+      <TokenManager />
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">Diagnostica API</h2>
+        <div className="space-x-2">
           <button
-            type="button"
+            onClick={handleRetestAll}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Riprova Tutti
+          </button>
+          <button
             onClick={() => setShowTests(!showTests)}
-            className="px-3 py-1 text-sm rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
           >
             {showTests ? 'Nascondi test' : 'Mostra test'}
           </button>
         </div>
       </div>
-      
-      <p className="text-sm text-gray-500 mb-4">
+
+      <p className="text-gray-600 mb-6">
         Verifica la connessione con i vari endpoint dell'API del backend.
+        {!hasAdminToken && (
+          <span className="block mt-2 text-amber-600">
+            ⚠️ Token admin non trovato! Gli endpoint admin non saranno testati. Usa il Token Manager sopra per aggiungere un token.
+          </span>
+        )}
       </p>
-      
+
       {showTests && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Test API Health */}
-            <div>
-              <ConnectionTest 
-                endpoint="/health" 
-                onStatusChange={(status, response) => handleStatusChange('/health', status, response)}
-                className="h-full"
-              />
-            </div>
-            
-            {/* Test API Utenti */}
-            <div>
-              <ConnectionTest 
-                endpoint="/admin/users/stats" 
-                autoTest={false}
-                onStatusChange={(status, response) => handleStatusChange('/admin/users/stats', status, response)}
-                className="h-full" 
-              />
-            </div>
-            
-            {/* Test API Abbonamenti */}
-            <div>
-              <ConnectionTest 
-                endpoint="/admin/subscriptions/stats" 
-                autoTest={false}
-                onStatusChange={(status, response) => handleStatusChange('/admin/subscriptions/stats', status, response)}
-                className="h-full" 
-              />
-            </div>
-            
-            {/* Test API Categorie */}
-            <div>
-              <ConnectionTest 
-                endpoint="/admin/categories" 
-                autoTest={false}
-                onStatusChange={(status, response) => handleStatusChange('/admin/categories', status, response)}
-                className="h-full" 
-              />
-            </div>
-          </div>
-          
-          {/* Riepilogo API */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="text-md font-medium mb-3">Riepilogo stato API</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(apiStatus).map(([key, test]) => (
-                <div key={key} className="bg-white p-3 rounded shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                    {test.status ? (
-                      <span className={`text-sm px-2 py-1 rounded ${test.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {test.status === 'success' ? 'OK' : 'Errore'}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-500">Non testato</span>
-                    )}
-                  </div>
-                  {test.timestamp && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Ultimo test: {new Date(test.timestamp).toLocaleString()}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4">
+          {filteredEndpoints.map((endpoint) => (
+            <ApiTestCard
+              key={endpoint.endpoint}
+              title={endpoint.title}
+              endpoint={endpoint.endpoint}
+              onRetest={retestTrigger}
+            />
+          ))}
         </div>
       )}
+
+      <div className="mt-8">
+        <h3 className="font-medium text-lg mb-4">Riepilogo stato API</h3>
+        <div className="bg-gray-100 p-4 rounded">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredEndpoints.map((endpoint) => (
+              <div key={`status-${endpoint.endpoint}`} className="bg-white p-3 rounded shadow-sm">
+                <h4 className="font-medium text-sm mb-1">{endpoint.title}</h4>
+                <ApiStatusIndicator endpoint={endpoint.endpoint} retestTrigger={retestTrigger} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
