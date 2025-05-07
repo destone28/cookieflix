@@ -1,8 +1,9 @@
 # app/routers/auth.py
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from app.schemas import user as schemas
 from app.models.user import User
@@ -13,6 +14,9 @@ from app.utils.auth import (
 from app.utils.csrf import generate_csrf_token
 from app.database import get_db
 from app.config import settings
+
+# Configurazione logger
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 
@@ -40,39 +44,6 @@ async def register(user_data: schemas.UserCreate, db: Session = Depends(get_db))
     db.refresh(db_user)
     
     return db_user
-
-@router.post("/token", response_model=schemas.Token)
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    # Verifica credenziali
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenziali non valide",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Genera token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@router.get("/me", response_model=schemas.User)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
-
-@router.get("/csrf-token")
-async def get_csrf_token():
-    """Genera un nuovo token CSRF"""
-    token = generate_csrf_token()
-    return {"csrf_token": token}
 
 @router.post("/token", response_model=schemas.Token)
 async def login(
@@ -124,6 +95,76 @@ async def login(
     
     return {"access_token": access_token, "token_type": "bearer"}
 
+@router.post("/admin-login", response_model=schemas.Token)
+async def admin_login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """Endpoint per login amministratore"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"Tentativo di login admin per: {form_data.username}")
+    
+    # Verifica credenziali
+    user = db.query(User).filter(User.email == form_data.username).first()
+    
+    if not user:
+        logger.warning(f"Tentativo di login admin fallito: utente {form_data.username} non trovato")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenziali non valide",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verifica password
+    if not verify_password(form_data.password, user.hashed_password):
+        # Gestione tentativi falliti
+        user.failed_login_attempts += 1
+        db.commit()
+        
+        logger.warning(f"Tentativo di login admin fallito: password non valida per {user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenziali non valide",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verifica che l'utente sia admin
+    if not user.is_admin:
+        logger.warning(f"Tentativo di login admin fallito: l'utente {user.email} non è admin (is_admin={user.is_admin})")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Questo account non ha privilegi di amministratore"
+        )
+    
+    logger.info(f"Login admin riuscito per: {user.email}")
+    
+    # Reset tentativi falliti dopo login riuscito
+    if user.failed_login_attempts > 0:
+        user.failed_login_attempts = 0
+        user.account_locked_until = None
+        db.commit()
+    
+    # Genera token INCLUDENDO esplicitamente is_admin=True
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id), "is_admin": True},
+        expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me", response_model=schemas.User)
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+@router.get("/csrf-token")
+async def get_csrf_token():
+    """Genera un nuovo token CSRF"""
+    token = generate_csrf_token()
+    return {"csrf_token": token}
+
 # Endpoint temporaneo per il debug
 @router.get("/debug/admin-token")
 async def get_admin_token(db: Session = Depends(get_db)):
@@ -143,7 +184,7 @@ async def get_admin_token(db: Session = Depends(get_db)):
     # Generiamo il token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(admin_user.id)},
+        data={"sub": str(admin_user.id), "is_admin": True},
         expires_delta=access_token_expires
     )
     

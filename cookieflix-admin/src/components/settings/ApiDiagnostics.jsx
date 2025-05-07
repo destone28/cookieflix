@@ -1,260 +1,226 @@
 // src/components/settings/ApiDiagnostics.jsx
 import { useState, useEffect } from 'react';
-import api from '../../services/apiConfig';
+import axios from 'axios';
 import TokenManager from './TokenManager';
 
-// Componente per un singolo test API
-const ApiTestCard = ({ title, endpoint, onRetest }) => {
-  const [testResult, setTestResult] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-
-  const runTest = async () => {
-    setIsTesting(true);
-    setAttempts(prev => prev + 1);
-    
-    try {
-      const startTime = performance.now();
-      const response = await api.get(endpoint);
-      const endTime = performance.now();
-      
-      setTestResult({
-        success: true,
-        data: response.data,
-        responseTime: Math.round(endTime - startTime),
-        statusCode: response.status
-      });
-    } catch (error) {
-      setTestResult({
-        success: false,
-        error: error.response?.data?.detail || error.message,
-        statusCode: error.response?.status || 500
-      });
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  useEffect(() => {
-    runTest();
-  }, [endpoint, onRetest]);
-
-  return (
-    <div className="bg-white rounded-lg shadow p-5 mb-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">Test Connessione API</h3>
-        <button 
-          onClick={runTest}
-          disabled={isTesting}
-          className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
-        >
-          {isTesting ? 'Testing...' : 'Riprova'}
-        </button>
-      </div>
-
-      {testResult ? (
-        testResult.success ? (
-          <>
-            <div className="flex items-center text-green-500 mb-2">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Connessione riuscita</span>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">
-              <p>Tempo di risposta: {testResult.responseTime}ms</p>
-              <p>Tentativi: {attempts}</p>
-            </div>
-            <div className="mt-2">
-              <p className="font-medium mb-1">Endpoint: {endpoint}</p>
-              <div className="bg-gray-100 p-3 rounded overflow-auto max-h-40">
-                <pre className="text-xs">{JSON.stringify(testResult.data, null, 2)}</pre>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center text-red-500 mb-2">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <span>Errore di connessione</span>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">
-              <p>Tentativi: {attempts}</p>
-              <p>Stato: {testResult.statusCode || 'Sconosciuto'}</p>
-            </div>
-            <div className="mt-2">
-              <p className="font-medium mb-1">Endpoint: {endpoint}</p>
-              <div className="bg-red-50 p-3 rounded text-red-600">
-                <p>{testResult.error}</p>
-              </div>
-            </div>
-          </>
-        )
-      ) : (
-        <div className="flex items-center justify-center h-20">
-          <svg className="animate-spin h-6 w-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span className="ml-2 text-gray-500">Verifica connessione...</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Componente per indicatore di stato più compatto
-const ApiStatusIndicator = ({ endpoint, retestTrigger }) => {
-  const [status, setStatus] = useState('loading');
-  const [lastChecked, setLastChecked] = useState(null);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      setStatus('loading');
-      try {
-        const result = await api.get(endpoint);
-        setStatus('online');
-        setLastChecked(new Date());
-      } catch (error) {
-        setStatus('error');
-        setLastChecked(new Date());
-      }
-    };
-
-    checkStatus();
-  }, [endpoint, retestTrigger]);
-
-  const statusColors = {
-    loading: 'text-gray-500',
-    online: 'text-green-500',
-    error: 'text-red-500'
-  };
-
-  const statusLabels = {
-    loading: 'Verifica...',
-    online: 'Online',
-    error: 'Errore'
-  };
-
-  return (
-    <div className="flex items-center">
-      <div className={`w-3 h-3 rounded-full mr-2 ${
-        status === 'online' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-gray-400'
-      }`}></div>
-      <div>
-        <p className={`text-sm font-medium ${statusColors[status]}`}>
-          {statusLabels[status]}
-        </p>
-        {lastChecked && (
-          <p className="text-xs text-gray-500">
-            {lastChecked.toLocaleTimeString()}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Componente principale per la diagnostica
 const ApiDiagnostics = () => {
-  const [retestTrigger, setRetestTrigger] = useState(0);
-  const [showTests, setShowTests] = useState(true);
+  const [results, setResults] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [hasAdminToken, setHasAdminToken] = useState(!!localStorage.getItem('admin_token'));
 
   useEffect(() => {
-    // Verifica se il token è presente nel localStorage
     const checkToken = () => {
       setHasAdminToken(!!localStorage.getItem('admin_token'));
     };
-
-    // Verifica iniziale
     checkToken();
-
-    // Aggiungi un listener per i cambiamenti nel localStorage
     window.addEventListener('storage', checkToken);
-
-    return () => {
-      window.removeEventListener('storage', checkToken);
-    };
+    return () => window.removeEventListener('storage', checkToken);
   }, []);
 
-  // CORREZIONE: Aggiunto il prefisso /api a tutti gli endpoint
-  const endpoints = [
-    { title: 'API Base', endpoint: '/' },
-    { title: 'Health', endpoint: '/health' },
-    { title: 'Admin Health', endpoint: '/admin/health', admin: true },
-    { title: 'Admin Users Stats', endpoint: '/admin/users/stats', admin: true },
-    { title: 'Admin Subscriptions Stats', endpoint: '/admin/subscriptions/stats', admin: true },
-    { title: 'Admin Categories', endpoint: '/admin/categories', admin: true }
-  ];
+  // Funzione per aggiungere un risultato di test
+  const addResult = (title, success, data, error = null) => {
+    setResults(prev => [
+      {
+        id: Date.now(), // Assicura che ogni risultato abbia un ID unico
+        title,
+        success,
+        data: typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data),
+        error: error ? String(error) : null,
+        timestamp: new Date().toLocaleTimeString()
+      },
+      ...prev
+    ]);
+  };
 
-  // Filtra gli endpoint in base al token admin
-  const filteredEndpoints = endpoints.filter(endpoint => !endpoint.admin || hasAdminToken);
+  // Test manuale per Admin Login
+  const testAdminLogin = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('username', 'admin@cookieflix.com');
+      params.append('password', 'adminpassword');
+      
+      const response = await axios.post('/api/auth/admin-login', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      
+      addResult('Admin Login', true, response.data);
+      
+      // Salva il token
+      if (response.data.access_token) {
+        localStorage.setItem('admin_token', response.data.access_token);
+        setHasAdminToken(true);
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      addResult('Admin Login', false, 
+        error.response?.data || {}, 
+        `${error.message} - ${error.response?.status || 'Unknown status'}`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const handleRetestAll = () => {
-    setRetestTrigger(prev => prev + 1);
+  // Test per Debug Admin Token
+  const testDebugAdminToken = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get('/api/auth/debug/admin-token');
+      addResult('Debug Admin Token', true, response.data);
+      
+      // Salva il token
+      if (response.data.access_token) {
+        localStorage.setItem('admin_token', response.data.access_token);
+        setHasAdminToken(true);
+      }
+    } catch (error) {
+      console.error('Debug token error:', error);
+      addResult('Debug Admin Token', false, 
+        error.response?.data || {}, 
+        `${error.message} - ${error.response?.status || 'Unknown status'}`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Test per verificare /me endpoint con token
+  const testMeEndpoint = async () => {
+    const token = localStorage.getItem('admin_token');
+    
+    if (!token) {
+      addResult('/api/auth/me', false, {}, 'Token non trovato in localStorage');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.get('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      addResult('/api/auth/me', true, response.data);
+    } catch (error) {
+      console.error('Me endpoint error:', error);
+      addResult('/api/auth/me', false, 
+        error.response?.data || {}, 
+        `${error.message} - ${error.response?.status || 'Unknown status'}`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Funzione per verificare il contenuto del token
+  const checkTokenContent = () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      addResult('Token Decoder', false, {}, 'Nessun token trovato');
+      return;
+    }
+    
+    try {
+      // Decodifica il token (senza verifica)
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Token JWT non valido');
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      addResult('Token Decoder', true, payload);
+    } catch (error) {
+      console.error('Token decode error:', error);
+      addResult('Token Decoder', false, {}, String(error));
+    }
   };
 
   return (
-    <div>
+    <div className="p-6">
       {/* Token Manager */}
       <TokenManager />
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-xl font-semibold">Diagnostica API</h2>
-        <div className="space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button
-            onClick={handleRetestAll}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={testAdminLogin}
+            disabled={isLoading}
+            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
           >
-            Riprova Tutti
+            Test Admin Login
           </button>
           <button
-            onClick={() => setShowTests(!showTests)}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+            onClick={testDebugAdminToken}
+            disabled={isLoading}
+            className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
           >
-            {showTests ? 'Nascondi test' : 'Mostra test'}
+            Debug Token
+          </button>
+          <button
+            onClick={testMeEndpoint}
+            disabled={isLoading}
+            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
+          >
+            Test /me
+          </button>
+          <button
+            onClick={checkTokenContent}
+            disabled={isLoading}
+            className="px-3 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600 disabled:opacity-50"
+          >
+            Decodifica Token
           </button>
         </div>
       </div>
 
       <p className="text-gray-600 mb-6">
-        Verifica la connessione con i vari endpoint dell'API del backend.
+        Strumento di diagnostica per verificare la connessione API e l'autenticazione. 
         {!hasAdminToken && (
           <span className="block mt-2 text-amber-600">
-            ⚠️ Token admin non trovato! Gli endpoint admin non saranno testati. Usa il Token Manager sopra per aggiungere un token.
+            ⚠️ Token admin non trovato! Usa i pulsanti sopra per ottenere un token.
           </span>
         )}
       </p>
 
-      {showTests && (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredEndpoints.map((endpoint) => (
-            <ApiTestCard
-              key={endpoint.endpoint}
-              title={endpoint.title}
-              endpoint={endpoint.endpoint}
-              onRetest={retestTrigger}
-            />
-          ))}
+      {/* Indicatore di caricamento */}
+      {isLoading && (
+        <div className="flex justify-center my-4">
+          <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
         </div>
       )}
 
-      <div className="mt-8">
-        <h3 className="font-medium text-lg mb-4">Riepilogo stato API</h3>
-        <div className="bg-gray-100 p-4 rounded">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {filteredEndpoints.map((endpoint) => (
-              <div key={`status-${endpoint.endpoint}`} className="bg-white p-3 rounded shadow-sm">
-                <h4 className="font-medium text-sm mb-1">{endpoint.title}</h4>
-                <ApiStatusIndicator endpoint={endpoint.endpoint} retestTrigger={retestTrigger} />
+      {/* Risultati dei test */}
+      {results.length > 0 && (
+        <div className="space-y-4 mt-6">
+          <h3 className="font-medium text-lg">Risultati dei test</h3>
+          {results.map((result) => (
+            <div 
+              key={result.id} 
+              className={`p-4 rounded border ${result.success ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}
+            >
+              <div className="flex justify-between mb-2">
+                <span className="font-medium">{result.title}</span>
+                <span className="text-sm text-gray-500">{result.timestamp}</span>
               </div>
-            ))}
-          </div>
+              {result.error && (
+                <div className="mb-2 text-red-600 text-sm font-mono whitespace-pre-wrap">
+                  Errore: {result.error}
+                </div>
+              )}
+              <div className="bg-white p-2 rounded text-xs overflow-auto max-h-64">
+                <pre>{result.data}</pre>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 };

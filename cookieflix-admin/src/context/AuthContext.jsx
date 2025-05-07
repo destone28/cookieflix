@@ -1,6 +1,7 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -27,6 +28,9 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Token valido
           setCurrentUser(decoded);
+          
+          // Verifica che l'utente sia effettivamente admin
+          fetchUserProfile(token);
         }
       } catch (err) {
         console.error('Invalid token:', err);
@@ -36,28 +40,66 @@ export const AuthProvider = ({ children }) => {
     }
     setIsLoading(false);
   }, []);
+  
+  const fetchUserProfile = async (token) => {
+    try {
+      const response = await axios.get('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (!response.data.is_admin) {
+        // L'utente non è admin
+        logout();
+        setError('Questo account non ha privilegi di amministratore');
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      logout();
+    }
+  };
 
   const login = async (email, password) => {
     try {
-      // Invece di un token fittizio semplice, creiamo un formato JWT valido
-      // Formato: header.payload.signature
-      const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-      const payload = btoa(JSON.stringify({
-        id: 1,
-        email,
-        role: 'admin',
-        exp: Math.floor(Date.now() / 1000) + 3600 // Scade tra 1 ora
-      }));
-      const signature = btoa('fake_signature'); // Una firma finta per lo sviluppo
+      setIsLoading(true);
+      // Utilizzo di URLSearchParams per inviare i dati in formato application/x-www-form-urlencoded
+      // come richiesto da OAuth2PasswordRequestForm
+      const params = new URLSearchParams();
+      params.append('username', email);
+      params.append('password', password);
       
-      const fakeToken = `${header}.${payload}.${signature}`;
+      const response = await axios.post('/api/auth/admin-login', params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
       
-      localStorage.setItem('admin_token', fakeToken);
-      setCurrentUser({ id: 1, email, role: 'admin' });
+      const { access_token } = response.data;
+      localStorage.setItem('admin_token', access_token);
+      
+      // Decodifica token e imposta utente
+      const decoded = jwtDecode(access_token);
+      setCurrentUser(decoded);
+      
       return true;
     } catch (err) {
-      setError(err.message || 'Errore durante il login');
+      console.error('Login error:', err);
+      
+      // Gestione specifica degli errori
+      if (err.response) {
+        if (err.response.status === 403) {
+          setError('Questo account non ha privilegi di amministratore');
+        } else {
+          setError(err.response.data?.detail || 'Errore durante il login');
+        }
+      } else {
+        setError('Errore di connessione al server');
+      }
+      
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 

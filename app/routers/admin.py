@@ -12,108 +12,86 @@ from app.models.subscription import Subscription, SubscriptionPlan
 from app.models.product import Category, Design, Vote
 from app.utils.auth import get_current_admin_user
 
-router = APIRouter(prefix=f"{settings.API_PREFIX}/admin", tags=["Admin"])
+import logging
 
 # Middleware che verifica che l'utente sia un admin
 # admin_dependency = [Depends(get_current_admin_user)]
 admin_dependency = [] # Rimuovo temporaneamente la dipendenza per debug
+router = APIRouter(prefix=f"{settings.API_PREFIX}/admin", tags=["Admin"])
 
-@router.get("/health", dependencies=admin_dependency)
-async def admin_health_check():
-    """Verifica lo stato del sistema admin"""
+logger = logging.getLogger(__name__)
+
+
+# Endpoint di health check
+@router.get("/health")
+async def health_check(current_user: User = Depends(get_current_admin_user)):
+    """Verifica lo stato del server admin"""
     return {
         "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
-        "service": "admin"
+        "timestamp": datetime.utcnow(),
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "is_admin": current_user.is_admin
+        },
+        "environment": "development" if settings.DEBUG else "production"
     }
 
-@router.get("/users/stats", dependencies=admin_dependency)
-async def get_users_stats(db: Session = Depends(get_db)):
-    """Statistiche sugli utenti"""
-    try:
-        total_users = db.query(func.count(User.id)).scalar()
-        active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
-        inactive_users = total_users - active_users
-        
-        # Utenti nuovi negli ultimi 30 giorni
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        new_users = db.query(func.count(User.id)).filter(User.created_at >= thirty_days_ago).scalar()
-        
-        # Utenti con abbonamento attivo
-        users_with_active_subscription = db.query(
-            func.count(User.id.distinct())
-        ).join(Subscription).filter(Subscription.is_active == True).scalar()
-        
-        return {
-            "total_users": total_users,
-            "active_users": active_users,
-            "inactive_users": inactive_users,
-            "new_users_30d": new_users,
-            "users_with_subscription": users_with_active_subscription,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Errore nel recupero delle statistiche: {str(e)}"
-        )
+# Statistiche utenti
+@router.get("/users/stats")
+async def get_users_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    """Ottiene statistiche sugli utenti"""
+    total_users = db.query(func.count(User.id)).scalar()
+    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
+    inactive_users = db.query(func.count(User.id)).filter(User.is_active == False).scalar()
+    admin_users = db.query(func.count(User.id)).filter(User.is_admin == True).scalar()
+    recent_users = db.query(func.count(User.id)).filter(User.created_at >= datetime.utcnow() - timedelta(days=30)).scalar()
+    
+    return {
+        "total": total_users,
+        "active": active_users,
+        "inactive": inactive_users,
+        "admins": admin_users,
+        "recent": recent_users
+    }
 
-@router.get("/subscriptions/stats", dependencies=admin_dependency)
-async def get_subscriptions_stats(db: Session = Depends(get_db)):
-    """Statistiche sugli abbonamenti"""
-    try:
-        total_subscriptions = db.query(func.count(Subscription.id)).scalar()
-        active_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.is_active == True).scalar()
-        
-        # Abbonamenti per piano
-        subscriptions_by_plan = []
-        plans = db.query(SubscriptionPlan).all()
-        for plan in plans:
-            count = db.query(func.count(Subscription.id)).filter(
-                Subscription.plan_id == plan.id,
-                Subscription.is_active == True
-            ).scalar()
-            subscriptions_by_plan.append({
-                "plan_id": plan.id,
-                "plan_name": plan.name,
-                "count": count
-            })
-        
-        # Abbonamenti per periodicità
-        monthly = db.query(func.count(Subscription.id)).filter(
-            Subscription.billing_period == "monthly",
-            Subscription.is_active == True
-        ).scalar()
-        quarterly = db.query(func.count(Subscription.id)).filter(
-            Subscription.billing_period == "quarterly",
-            Subscription.is_active == True
-        ).scalar()
-        semiannual = db.query(func.count(Subscription.id)).filter(
-            Subscription.billing_period == "semiannual",
-            Subscription.is_active == True
-        ).scalar()
-        annual = db.query(func.count(Subscription.id)).filter(
-            Subscription.billing_period == "annual",
-            Subscription.is_active == True
-        ).scalar()
-        
-        return {
-            "total_subscriptions": total_subscriptions,
-            "active_subscriptions": active_subscriptions,
-            "subscriptions_by_plan": subscriptions_by_plan,
-            "periodicity": {
-                "monthly": monthly,
-                "quarterly": quarterly,
-                "semiannual": semiannual,
-                "annual": annual
-            },
-            "timestamp": datetime.utcnow().isoformat()
+# Statistiche abbonamenti
+@router.get("/subscriptions/stats")
+async def get_subscriptions_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+    """Ottiene statistiche sugli abbonamenti"""
+    total_subscriptions = db.query(func.count(Subscription.id)).scalar()
+    active_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.is_active == True).scalar()
+    
+    monthly = db.query(func.count(Subscription.id)).filter(
+        Subscription.is_active == True, 
+        Subscription.billing_period == "monthly"
+    ).scalar()
+    
+    quarterly = db.query(func.count(Subscription.id)).filter(
+        Subscription.is_active == True, 
+        Subscription.billing_period == "quarterly"
+    ).scalar()
+    
+    semiannual = db.query(func.count(Subscription.id)).filter(
+        Subscription.is_active == True, 
+        Subscription.billing_period == "semiannual"
+    ).scalar()
+    
+    annual = db.query(func.count(Subscription.id)).filter(
+        Subscription.is_active == True, 
+        Subscription.billing_period == "annual"
+    ).scalar()
+    
+    return {
+        "total": total_subscriptions,
+        "active": active_subscriptions,
+        "by_period": {
+            "monthly": monthly,
+            "quarterly": quarterly,
+            "semiannual": semiannual,
+            "annual": annual
         }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Errore nel recupero delle statistiche: {str(e)}"
-        )
+    }
 
 @router.get("/categories", dependencies=admin_dependency)
 async def get_admin_categories(
@@ -207,4 +185,15 @@ async def get_system_info():
         "environment": "development" if settings.DEBUG else "production",
         "version": "0.1.0",
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+# Endpoint pubblico per health check (senza autenticazione)
+@router.get("/public-health")
+async def public_health_check():
+    """Verifica lo stato del server admin (endpoint pubblico)"""
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow(),
+        "version": "1.0.0",
+        "environment": "development" if settings.DEBUG else "production"
     }
