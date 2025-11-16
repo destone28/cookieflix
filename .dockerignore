@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Frontend
+cookieflix-frontend/
+cookieflix-admin/
+
+# Documentation
+*.md
+!CLAUDE.md
+
+# Cache
+.cache/
+.pytest_cache/
+__pycache__/
+
+# Uploads (will be mounted as volume)
+uploads/*
+!uploads/.gitkeep
+!uploads/*/
+!uploads/*/.gitkeep
+
+# Nginx
+nginx/
+
+# Certbot
+certbot/

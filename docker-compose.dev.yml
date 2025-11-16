@@ -1,0 +1,46 @@
+version: '3.8'
+
+# Development Docker Compose configuration
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # SQLite is used in development by default (no separate DB container needed)
+  # If you want PostgreSQL in development, uncomment the db service below
+
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: cookieflix-db-dev
+  #   environment:
+  #     POSTGRES_USER: cookieflix
+  #     POSTGRES_PASSWORD: devpassword
+  #     POSTGRES_DB: cookieflix_dev
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_dev_data:/var/lib/postgresql/data
+
+  # FastAPI Backend (development mode with hot reload)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cookieflix-backend-dev
+    environment:
+      - DATABASE_URL=sqlite:///./cookieflix.db  # Use PostgreSQL URL if db service is enabled
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=True
+      - ENVIRONMENT=development
+      - FRONTEND_URL=http://localhost:5173
+      - ADMIN_FRONTEND_URL=http://localhost:5174
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost:3001
+    volumes:
+      - .:/app  # Mount source code for hot reload
+      - ./uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # depends_on:
+    #   - db  # Uncomment if using PostgreSQL
+
+# volumes:
+#   postgres_dev_data:  # Uncomment if using PostgreSQL
