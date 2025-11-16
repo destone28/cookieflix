@@ -11,8 +11,23 @@ from app.models.user import User
 from app.models.subscription import Subscription, SubscriptionPlan
 from app.models.product import Category, Design, Vote
 from app.utils.auth import get_current_admin_user
+from app.schemas import product as product_schemas
+import re
+import unicodedata
 
 import logging
+
+
+def slugify(text: str) -> str:
+    """Converte un testo in slug URL-friendly"""
+    # Normalizza unicode
+    text = unicodedata.normalize('NFKD', text)
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    # Converti in minuscolo e rimuovi caratteri non alfanumerici
+    text = re.sub(r'[^\w\s-]', '', text.lower())
+    # Sostituisci spazi con trattini
+    text = re.sub(r'[-\s]+', '-', text).strip('-')
+    return text
 
 # Middleware che verifica che l'utente sia un admin
 admin_dependency = [Depends(get_current_admin_user)]
@@ -195,4 +210,159 @@ async def public_health_check():
         "timestamp": datetime.utcnow(),
         "version": "1.0.0",
         "environment": "development" if settings.DEBUG else "production"
+    }
+
+
+# =============================================================================
+# CATEGORY MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.post("/categories", response_model=product_schemas.Category, dependencies=admin_dependency)
+async def create_category(
+    category_data: product_schemas.CategoryCreate,
+    db: Session = Depends(get_db)
+):
+    """Crea una nuova categoria"""
+    # Verifica se esiste già una categoria con lo stesso nome o slug
+    existing = db.query(Category).filter(
+        (Category.name == category_data.name) | (Category.slug == category_data.slug)
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esiste già una categoria con questo nome o slug"
+        )
+
+    # Crea la nuova categoria
+    new_category = Category(
+        name=category_data.name,
+        slug=category_data.slug,
+        description=category_data.description,
+        image_url=category_data.image_url or ""
+    )
+
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+
+    logger.info(f"Admin created new category: {new_category.name} (ID: {new_category.id})")
+    return new_category
+
+
+@router.get("/categories/{category_id}", response_model=product_schemas.Category, dependencies=admin_dependency)
+async def get_category_by_id(
+    category_id: int,
+    db: Session = Depends(get_db)
+):
+    """Ottiene una categoria specifica per ID"""
+    category = db.query(Category).filter(Category.id == category_id).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria non trovata"
+        )
+
+    # Aggiungi conteggio design
+    design_count = db.query(func.count(Design.id)).filter(
+        Design.category_id == category.id
+    ).scalar()
+    setattr(category, 'design_count', design_count)
+
+    return category
+
+
+@router.put("/categories/{category_id}", response_model=product_schemas.Category, dependencies=admin_dependency)
+async def update_category(
+    category_id: int,
+    category_data: product_schemas.CategoryUpdate,
+    db: Session = Depends(get_db)
+):
+    """Aggiorna una categoria esistente"""
+    category = db.query(Category).filter(Category.id == category_id).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria non trovata"
+        )
+
+    # Verifica unicità del nome se viene modificato
+    if category_data.name and category_data.name != category.name:
+        existing = db.query(Category).filter(
+            Category.name == category_data.name,
+            Category.id != category_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esiste già una categoria con questo nome"
+            )
+        category.name = category_data.name
+        # Auto-genera slug dal nuovo nome
+        category.slug = slugify(category_data.name)
+
+    # Aggiorna gli altri campi se forniti
+    if category_data.description is not None:
+        category.description = category_data.description
+    if category_data.image_url is not None:
+        category.image_url = category_data.image_url
+    if category_data.is_active is not None:
+        category.is_active = category_data.is_active
+
+    db.commit()
+    db.refresh(category)
+
+    logger.info(f"Admin updated category ID {category_id}")
+    return category
+
+
+@router.delete("/categories/{category_id}", dependencies=admin_dependency)
+async def delete_category(
+    category_id: int,
+    permanent: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina o disattiva una categoria
+
+    Args:
+        category_id: ID della categoria
+        permanent: Se True, elimina permanentemente. Se False (default), disattiva solo
+    """
+    category = db.query(Category).filter(Category.id == category_id).first()
+
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria non trovata"
+        )
+
+    # Verifica se ci sono design associati
+    design_count = db.query(func.count(Design.id)).filter(
+        Design.category_id == category_id
+    ).scalar()
+
+    if permanent:
+        if design_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Impossibile eliminare: ci sono {design_count} design associati a questa categoria"
+            )
+        db.delete(category)
+        message = f"Categoria '{category.name}' eliminata permanentemente"
+        logger.warning(f"Admin permanently deleted category ID {category_id}")
+    else:
+        category.is_active = False
+        message = f"Categoria '{category.name}' disattivata"
+        logger.info(f"Admin deactivated category ID {category_id}")
+
+    db.commit()
+
+    return {
+        "message": message,
+        "category_id": category_id,
+        "design_count": design_count,
+        "permanent": permanent
     }
