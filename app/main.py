@@ -51,10 +51,12 @@ app = FastAPI(
 )
 
 # Middleware CORS
-# allow_origins=[settings.FRONTEND_URL, "https://cdn.jsdelivr.net", "http://localhost:5173"],
+allowed_origins = settings.get_allowed_origins_list()
+logger.info(f"CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In development, allow all origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
