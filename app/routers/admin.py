@@ -13,7 +13,10 @@ from app.models.product import Category, Design, Vote
 from app.utils.auth import get_current_admin_user
 from app.schemas import product as product_schemas
 from app.schemas import user as user_schemas
+from app.schemas import subscription as subscription_schemas
+from app.schemas import shipment as shipment_schemas
 from app.models.activity import Activity
+from app.models.shipment import Shipment, ShipmentItem
 import re
 import unicodedata
 
@@ -781,4 +784,335 @@ async def delete_user(
         "votes_count": votes_count,
         "activities_count": activities_count,
         "permanent": permanent
+    }
+
+
+# =============================================================================
+# SUBSCRIPTION MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.get("/subscriptions", dependencies=admin_dependency)
+async def get_all_subscriptions(
+    skip: int = 0,
+    limit: int = 100,
+    is_active: Optional[bool] = None,
+    plan_id: Optional[int] = None,
+    billing_period: Optional[str] = None,
+    user_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Ottiene lista completa abbonamenti con filtri"""
+    query = db.query(Subscription)
+
+    # Applica filtri
+    if is_active is not None:
+        query = query.filter(Subscription.is_active == is_active)
+    if plan_id is not None:
+        query = query.filter(Subscription.plan_id == plan_id)
+    if billing_period is not None:
+        query = query.filter(Subscription.billing_period == billing_period)
+    if user_id is not None:
+        query = query.filter(Subscription.user_id == user_id)
+
+    # Conta il totale prima di applicare skip/limit
+    total = query.count()
+
+    # Applica paginazione
+    subscriptions = query.offset(skip).limit(limit).all()
+
+    # Arricchisci con informazioni utente e piano
+    result_subscriptions = []
+    for sub in subscriptions:
+        sub_dict = subscription_schemas.Subscription.from_orm(sub).dict()
+
+        # Aggiungi info utente
+        user = db.query(User).filter(User.id == sub.user_id).first()
+        if user:
+            sub_dict['user_email'] = user.email
+            sub_dict['user_full_name'] = user.full_name
+
+        # Aggiungi info piano
+        plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == sub.plan_id).first()
+        if plan:
+            sub_dict['plan_name'] = plan.name
+            sub_dict['plan_slug'] = plan.slug
+
+        result_subscriptions.append(sub_dict)
+
+    return {
+        "items": result_subscriptions,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/subscriptions/{subscription_id}", dependencies=admin_dependency)
+async def get_subscription_by_id(
+    subscription_id: int,
+    db: Session = Depends(get_db)
+):
+    """Ottiene dettagli completi di un abbonamento specifico"""
+    subscription = db.query(Subscription).filter(Subscription.id == subscription_id).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Abbonamento non trovato"
+        )
+
+    # Arricchisci con dati utente e piano
+    sub_dict = subscription_schemas.Subscription.from_orm(subscription).dict()
+
+    # Aggiungi info utente completa
+    user = db.query(User).filter(User.id == subscription.user_id).first()
+    if user:
+        sub_dict['user'] = user_schemas.User.from_orm(user).dict()
+
+    # Aggiungi info piano completa
+    plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == subscription.plan_id).first()
+    if plan:
+        sub_dict['plan'] = subscription_schemas.SubscriptionPlan.from_orm(plan).dict()
+
+    return sub_dict
+
+
+@router.post("/subscriptions/{subscription_id}/cancel", dependencies=admin_dependency)
+async def cancel_subscription(
+    subscription_id: int,
+    reason: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Cancella un abbonamento (admin override)
+
+    Args:
+        subscription_id: ID dell'abbonamento
+        reason: Motivo della cancellazione (opzionale)
+    """
+    subscription = db.query(Subscription).filter(Subscription.id == subscription_id).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Abbonamento non trovato"
+        )
+
+    if not subscription.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="L'abbonamento è già cancellato"
+        )
+
+    # Ottieni info utente per il log
+    user = db.query(User).filter(User.id == subscription.user_id).first()
+
+    # Cancella l'abbonamento
+    subscription.is_active = False
+    subscription.end_date = datetime.utcnow()
+
+    db.commit()
+    db.refresh(subscription)
+
+    log_message = f"Admin cancelled subscription ID {subscription_id} for user {user.email}"
+    if reason:
+        log_message += f" (reason: {reason})"
+    logger.warning(log_message)
+
+    return {
+        "message": "Abbonamento cancellato con successo",
+        "subscription_id": subscription_id,
+        "user_email": user.email if user else None,
+        "end_date": subscription.end_date,
+        "reason": reason
+    }
+
+
+# =============================================================================
+# SHIPMENT MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.get("/shipments", dependencies=admin_dependency)
+async def get_all_shipments(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    user_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Ottiene lista completa spedizioni con filtri"""
+    query = db.query(Shipment)
+
+    # Applica filtri
+    if status is not None:
+        query = query.filter(Shipment.status == status)
+    if user_id is not None:
+        query = query.filter(Shipment.user_id == user_id)
+
+    # Conta il totale prima di applicare skip/limit
+    total = query.count()
+
+    # Applica paginazione e ordina per data più recente
+    shipments = query.order_by(Shipment.created_at.desc()).offset(skip).limit(limit).all()
+
+    # Arricchisci con informazioni utente
+    result_shipments = []
+    for shipment in shipments:
+        shipment_dict = shipment_schemas.Shipment.from_orm(shipment).dict()
+
+        # Aggiungi info utente
+        user = db.query(User).filter(User.id == shipment.user_id).first()
+        if user:
+            shipment_dict['user_email'] = user.email
+            shipment_dict['user_full_name'] = user.full_name
+
+        # Conta items
+        items_count = db.query(func.count(ShipmentItem.id)).filter(
+            ShipmentItem.shipment_id == shipment.id
+        ).scalar()
+        shipment_dict['items_count'] = items_count
+
+        result_shipments.append(shipment_dict)
+
+    return {
+        "items": result_shipments,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/shipments/{shipment_id}", dependencies=admin_dependency)
+async def get_shipment_by_id(
+    shipment_id: int,
+    db: Session = Depends(get_db)
+):
+    """Ottiene dettagli completi di una spedizione specifica con items"""
+    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+
+    if not shipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spedizione non trovata"
+        )
+
+    # Arricchisci con dati utente
+    shipment_dict = shipment_schemas.Shipment.from_orm(shipment).dict()
+
+    # Aggiungi info utente completa
+    user = db.query(User).filter(User.id == shipment.user_id).first()
+    if user:
+        shipment_dict['user'] = user_schemas.User.from_orm(user).dict()
+
+    # Aggiungi items con design
+    items = db.query(ShipmentItem).filter(ShipmentItem.shipment_id == shipment_id).all()
+    shipment_dict['items'] = []
+    for item in items:
+        item_dict = shipment_schemas.ShipmentItem.from_orm(item).dict()
+        # Aggiungi design
+        design = db.query(Design).filter(Design.id == item.design_id).first()
+        if design:
+            item_dict['design'] = product_schemas.Design.from_orm(design).dict()
+        shipment_dict['items'].append(item_dict)
+
+    return shipment_dict
+
+
+@router.put("/shipments/{shipment_id}", dependencies=admin_dependency)
+async def update_shipment(
+    shipment_id: int,
+    tracking_number: Optional[str] = None,
+    status: Optional[str] = None,
+    shipped_date: Optional[datetime] = None,
+    estimated_delivery_date: Optional[datetime] = None,
+    delivered_date: Optional[datetime] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Aggiorna una spedizione
+
+    Allowed status values: pending, processing, shipped, in_transit, delivered, returned
+    """
+    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+
+    if not shipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spedizione non trovata"
+        )
+
+    # Valida status se fornito
+    valid_statuses = ['pending', 'processing', 'shipped', 'in_transit', 'delivered', 'returned']
+    if status and status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Status non valido. Valori permessi: {', '.join(valid_statuses)}"
+        )
+
+    # Aggiorna campi se forniti
+    update_fields = []
+    if tracking_number is not None:
+        shipment.tracking_number = tracking_number
+        update_fields.append("tracking_number")
+    if status is not None:
+        shipment.status = status
+        update_fields.append("status")
+        # Se status è delivered, imposta automaticamente delivered_date se non fornito
+        if status == "delivered" and not delivered_date and not shipment.delivered_date:
+            shipment.delivered_date = datetime.utcnow()
+            update_fields.append("delivered_date (auto)")
+    if shipped_date is not None:
+        shipment.shipped_date = shipped_date
+        update_fields.append("shipped_date")
+    if estimated_delivery_date is not None:
+        shipment.estimated_delivery_date = estimated_delivery_date
+        update_fields.append("estimated_delivery_date")
+    if delivered_date is not None:
+        shipment.delivered_date = delivered_date
+        update_fields.append("delivered_date")
+
+    db.commit()
+    db.refresh(shipment)
+
+    logger.info(f"Admin updated shipment ID {shipment_id}, fields: {', '.join(update_fields)}")
+
+    return shipment_schemas.Shipment.from_orm(shipment).dict()
+
+
+@router.delete("/shipments/{shipment_id}", dependencies=admin_dependency)
+async def delete_shipment(
+    shipment_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina una spedizione e tutti i suoi items
+
+    Attenzione: questa è un'eliminazione permanente
+    """
+    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+
+    if not shipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Spedizione non trovata"
+        )
+
+    # Conta items prima di eliminare
+    items_count = db.query(func.count(ShipmentItem.id)).filter(
+        ShipmentItem.shipment_id == shipment_id
+    ).scalar()
+
+    # Elimina prima gli items
+    db.query(ShipmentItem).filter(ShipmentItem.shipment_id == shipment_id).delete()
+
+    # Poi elimina la spedizione
+    db.delete(shipment)
+    db.commit()
+
+    logger.warning(f"Admin permanently deleted shipment ID {shipment_id} with {items_count} items")
+
+    return {
+        "message": "Spedizione eliminata permanentemente",
+        "shipment_id": shipment_id,
+        "items_deleted": items_count
     }
