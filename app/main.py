@@ -11,7 +11,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, users, products, subscriptions, webhooks, shipments, admin
+from app.routers import auth, users, products, subscriptions, webhooks, shipments, admin, upload
 from app.seed import seed_database
 from app.utils.logging import setup_logging
 from app.utils.db_migrations import add_missing_columns
@@ -97,6 +97,7 @@ app.include_router(subscriptions.router)
 app.include_router(webhooks.router)
 app.include_router(shipments.router)
 app.include_router(admin.router)
+app.include_router(upload.router)
 
 # Cartella statica e template
 try:
@@ -104,6 +105,15 @@ try:
     templates = Jinja2Templates(directory="app/templates")
 except Exception as e:
     logger.warning(f"Impossibile montare directory static: {e}")
+
+# Cartella uploads
+uploads_dir = settings.UPLOAD_DIR
+os.makedirs(uploads_dir, exist_ok=True)
+try:
+    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+    logger.info(f"Uploads directory mounted at /uploads")
+except Exception as e:
+    logger.warning(f"Impossibile montare directory uploads: {e}")
 
 # Root
 @app.get("/")
