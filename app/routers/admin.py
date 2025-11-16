@@ -15,8 +15,7 @@ from app.utils.auth import get_current_admin_user
 import logging
 
 # Middleware che verifica che l'utente sia un admin
-# admin_dependency = [Depends(get_current_admin_user)]
-admin_dependency = [] # Rimuovo temporaneamente la dipendenza per debug
+admin_dependency = [Depends(get_current_admin_user)]
 router = APIRouter(prefix=f"{settings.API_PREFIX}/admin", tags=["Admin"])
 
 logger = logging.getLogger(__name__)
