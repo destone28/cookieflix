@@ -366,3 +366,155 @@ async def delete_category(
         "design_count": design_count,
         "permanent": permanent
     }
+
+
+# =============================================================================
+# DESIGN MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.post("/designs", response_model=product_schemas.Design, dependencies=admin_dependency)
+async def create_design(
+    design_data: product_schemas.DesignCreate,
+    db: Session = Depends(get_db)
+):
+    """Crea un nuovo design"""
+    # Verifica che la categoria esista
+    category = db.query(Category).filter(Category.id == design_data.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Categoria non trovata"
+        )
+
+    # Crea il nuovo design
+    new_design = Design(
+        name=design_data.name,
+        description=design_data.description,
+        category_id=design_data.category_id,
+        image_url=design_data.image_url,
+        model_url=design_data.model_url
+    )
+
+    db.add(new_design)
+    db.commit()
+    db.refresh(new_design)
+
+    logger.info(f"Admin created new design: {new_design.name} (ID: {new_design.id}) in category {category.name}")
+    return new_design
+
+
+@router.get("/designs/{design_id}", response_model=product_schemas.DesignWithCategory, dependencies=admin_dependency)
+async def get_design_by_id(
+    design_id: int,
+    db: Session = Depends(get_db)
+):
+    """Ottiene un design specifico per ID con informazioni categoria"""
+    design = db.query(Design).filter(Design.id == design_id).first()
+
+    if not design:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Design non trovato"
+        )
+
+    # Aggiungi conteggio voti
+    votes_count = db.query(func.count(Vote.id)).filter(
+        Vote.design_id == design.id
+    ).scalar()
+    setattr(design, 'votes_count', votes_count)
+
+    return design
+
+
+@router.put("/designs/{design_id}", response_model=product_schemas.Design, dependencies=admin_dependency)
+async def update_design(
+    design_id: int,
+    design_data: product_schemas.DesignUpdate,
+    db: Session = Depends(get_db)
+):
+    """Aggiorna un design esistente"""
+    design = db.query(Design).filter(Design.id == design_id).first()
+
+    if not design:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Design non trovato"
+        )
+
+    # Verifica che la nuova categoria esista (se fornita)
+    if design_data.category_id and design_data.category_id != design.category_id:
+        category = db.query(Category).filter(Category.id == design_data.category_id).first()
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Categoria non trovata"
+            )
+        design.category_id = design_data.category_id
+
+    # Aggiorna gli altri campi se forniti
+    if design_data.name is not None:
+        design.name = design_data.name
+    if design_data.description is not None:
+        design.description = design_data.description
+    if design_data.image_url is not None:
+        design.image_url = design_data.image_url
+    if design_data.model_url is not None:
+        design.model_url = design_data.model_url
+    if design_data.is_active is not None:
+        design.is_active = design_data.is_active
+
+    db.commit()
+    db.refresh(design)
+
+    logger.info(f"Admin updated design ID {design_id}")
+    return design
+
+
+@router.delete("/designs/{design_id}", dependencies=admin_dependency)
+async def delete_design(
+    design_id: int,
+    permanent: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina o disattiva un design
+
+    Args:
+        design_id: ID del design
+        permanent: Se True, elimina permanentemente. Se False (default), disattiva solo
+    """
+    design = db.query(Design).filter(Design.id == design_id).first()
+
+    if not design:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Design non trovato"
+        )
+
+    # Conta i voti associati
+    votes_count = db.query(func.count(Vote.id)).filter(
+        Vote.design_id == design_id
+    ).scalar()
+
+    if permanent:
+        # Elimina prima tutti i voti associati
+        if votes_count > 0:
+            db.query(Vote).filter(Vote.design_id == design_id).delete()
+            logger.info(f"Deleted {votes_count} votes for design ID {design_id}")
+
+        db.delete(design)
+        message = f"Design '{design.name}' eliminato permanentemente (con {votes_count} voti)"
+        logger.warning(f"Admin permanently deleted design ID {design_id}")
+    else:
+        design.is_active = False
+        message = f"Design '{design.name}' disattivato ({votes_count} voti preservati)"
+        logger.info(f"Admin deactivated design ID {design_id}")
+
+    db.commit()
+
+    return {
+        "message": message,
+        "design_id": design_id,
+        "votes_count": votes_count,
+        "permanent": permanent
+    }
