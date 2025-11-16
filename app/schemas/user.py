@@ -67,3 +67,17 @@ class PasswordChange(BaseModel):
 
 class AccountDeletionRequest(BaseModel):
     reason: str
+
+class AdminUserUpdate(BaseModel):
+    """Schema per aggiornamento utente da parte dell'admin"""
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+    credit_balance: Optional[float] = None
+    address: Optional[str] = None
+    street_number: Optional[str] = None
+    city: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
+    birthdate: Optional[date] = None

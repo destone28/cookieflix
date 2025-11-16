@@ -12,6 +12,8 @@ from app.models.subscription import Subscription, SubscriptionPlan
 from app.models.product import Category, Design, Vote
 from app.utils.auth import get_current_admin_user
 from app.schemas import product as product_schemas
+from app.schemas import user as user_schemas
+from app.models.activity import Activity
 import re
 import unicodedata
 
@@ -516,5 +518,267 @@ async def delete_design(
         "message": message,
         "design_id": design_id,
         "votes_count": votes_count,
+        "permanent": permanent
+    }
+
+
+# =============================================================================
+# USER MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.get("/users", dependencies=admin_dependency)
+async def get_all_users(
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    is_admin: Optional[bool] = None,
+    has_subscription: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    """Ottiene lista completa utenti con filtri avanzati"""
+    query = db.query(User)
+
+    # Applica filtri
+    if search:
+        query = query.filter(
+            (User.email.ilike(f"%{search}%")) | (User.full_name.ilike(f"%{search}%"))
+        )
+    if is_active is not None:
+        query = query.filter(User.is_active == is_active)
+    if is_admin is not None:
+        query = query.filter(User.is_admin == is_admin)
+    if has_subscription is not None:
+        if has_subscription:
+            query = query.filter(
+                User.id.in_(
+                    db.query(Subscription.user_id).filter(Subscription.is_active == True)
+                )
+            )
+        else:
+            query = query.filter(
+                ~User.id.in_(
+                    db.query(Subscription.user_id).filter(Subscription.is_active == True)
+                )
+            )
+
+    # Conta il totale prima di applicare skip/limit
+    total = query.count()
+
+    # Applica paginazione
+    users = query.offset(skip).limit(limit).all()
+
+    # Aggiungi info abbonamento per ogni utente
+    result_users = []
+    for user in users:
+        user_dict = user_schemas.User.from_orm(user).dict()
+        # Aggiungi conteggio abbonamenti attivi
+        active_subscriptions = db.query(func.count(Subscription.id)).filter(
+            Subscription.user_id == user.id,
+            Subscription.is_active == True
+        ).scalar()
+        user_dict['active_subscriptions_count'] = active_subscriptions
+        result_users.append(user_dict)
+
+    return {
+        "items": result_users,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/users/{user_id}", response_model=user_schemas.User, dependencies=admin_dependency)
+async def get_user_by_id(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Ottiene dettagli completi di un utente specifico"""
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato"
+        )
+
+    return user
+
+
+@router.get("/users/{user_id}/activity", dependencies=admin_dependency)
+async def get_user_activity(
+    user_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """Ottiene lo storico attività di un utente"""
+    # Verifica che l'utente esista
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato"
+        )
+
+    # Recupera attività
+    total = db.query(func.count(Activity.id)).filter(Activity.user_id == user_id).scalar()
+    activities = db.query(Activity).filter(
+        Activity.user_id == user_id
+    ).order_by(Activity.timestamp.desc()).offset(skip).limit(limit).all()
+
+    return {
+        "user_id": user_id,
+        "user_email": user.email,
+        "total": total,
+        "items": [
+            {
+                "id": activity.id,
+                "action": activity.action,
+                "timestamp": activity.timestamp,
+                "metadata": activity.metadata
+            }
+            for activity in activities
+        ]
+    }
+
+
+@router.put("/users/{user_id}", response_model=user_schemas.User, dependencies=admin_dependency)
+async def update_user(
+    user_id: int,
+    user_data: user_schemas.AdminUserUpdate,
+    db: Session = Depends(get_db)
+):
+    """Aggiorna un utente (admin ha accesso completo a tutti i campi)"""
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato"
+        )
+
+    # Verifica unicità email se viene modificata
+    if user_data.email and user_data.email != user.email:
+        existing = db.query(User).filter(
+            User.email == user_data.email,
+            User.id != user_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email già utilizzata da un altro utente"
+            )
+        user.email = user_data.email
+
+    # Aggiorna campi se forniti
+    update_fields = []
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+        update_fields.append("full_name")
+    if user_data.is_active is not None:
+        user.is_active = user_data.is_active
+        update_fields.append("is_active")
+    if user_data.is_admin is not None:
+        user.is_admin = user_data.is_admin
+        update_fields.append("is_admin")
+    if user_data.credit_balance is not None:
+        user.credit_balance = user_data.credit_balance
+        update_fields.append("credit_balance")
+    if user_data.address is not None:
+        user.address = user_data.address
+        update_fields.append("address")
+    if user_data.street_number is not None:
+        user.street_number = user_data.street_number
+        update_fields.append("street_number")
+    if user_data.city is not None:
+        user.city = user_data.city
+        update_fields.append("city")
+    if user_data.zip_code is not None:
+        user.zip_code = user_data.zip_code
+        update_fields.append("zip_code")
+    if user_data.country is not None:
+        user.country = user_data.country
+        update_fields.append("country")
+    if user_data.birthdate is not None:
+        user.birthdate = user_data.birthdate
+        update_fields.append("birthdate")
+
+    db.commit()
+    db.refresh(user)
+
+    logger.info(f"Admin updated user ID {user_id}, fields: {', '.join(update_fields)}")
+    return user
+
+
+@router.delete("/users/{user_id}", dependencies=admin_dependency)
+async def delete_user(
+    user_id: int,
+    permanent: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Elimina o disattiva un utente
+
+    Args:
+        user_id: ID dell'utente
+        permanent: Se True, elimina permanentemente. Se False (default), disattiva solo
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utente non trovato"
+        )
+
+    # Verifica se è admin
+    if user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossibile eliminare un utente amministratore"
+        )
+
+    # Conta dati associati
+    subscriptions_count = db.query(func.count(Subscription.id)).filter(
+        Subscription.user_id == user_id
+    ).scalar()
+    votes_count = db.query(func.count(Vote.id)).filter(Vote.user_id == user_id).scalar()
+    activities_count = db.query(func.count(Activity.id)).filter(Activity.user_id == user_id).scalar()
+
+    if permanent:
+        # Verifica abbonamenti attivi
+        active_subs = db.query(func.count(Subscription.id)).filter(
+            Subscription.user_id == user_id,
+            Subscription.is_active == True
+        ).scalar()
+        if active_subs > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Impossibile eliminare: l'utente ha {active_subs} abbonamento/i attivo/i"
+            )
+
+        # Elimina dati associati
+        db.query(Vote).filter(Vote.user_id == user_id).delete()
+        db.query(Activity).filter(Activity.user_id == user_id).delete()
+        db.query(Subscription).filter(Subscription.user_id == user_id).delete()
+
+        db.delete(user)
+        message = f"Utente '{user.email}' eliminato permanentemente"
+        logger.warning(f"Admin permanently deleted user ID {user_id} ({user.email})")
+    else:
+        user.is_active = False
+        message = f"Utente '{user.email}' disattivato"
+        logger.info(f"Admin deactivated user ID {user_id} ({user.email})")
+
+    db.commit()
+
+    return {
+        "message": message,
+        "user_id": user_id,
+        "email": user.email,
+        "subscriptions_count": subscriptions_count,
+        "votes_count": votes_count,
+        "activities_count": activities_count,
         "permanent": permanent
     }
